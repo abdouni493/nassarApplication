@@ -5,7 +5,10 @@ import { open } from 'sqlite';
 import path from 'path';
 import fs from 'fs';
 import multer from "multer";
+import { fileURLToPath } from "url";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const app = express();
 const upload = multer({ dest: "uploads/" });
 app.use(cors({
@@ -404,11 +407,8 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
 // Init database and start the server
 (async () => {
   try {
-    const dbDir = process.cwd();
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir);
-    }
-    const dbPath = path.join(dbDir, 'database.sqlite');
+   const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
+
     
     db = await open({
       filename: dbPath,
@@ -2664,6 +2664,13 @@ app.delete('/api/orders/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+app.use(express.static(path.join(__dirname, "dist")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on http://localhost:${PORT}`);

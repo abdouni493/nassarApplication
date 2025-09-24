@@ -5,13 +5,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm install --production
+
+# Install all deps (dev + prod)
+RUN npm install
 
 # Copy all files
 COPY . .
 
 # Build Vite frontend
-RUN npm install && npm run build
+RUN npm run build
+
+# Remove dev dependencies for smaller image
+RUN npm prune --production
 
 # Make sure folders exist
 RUN mkdir -p /app/uploads /data

@@ -11,7 +11,7 @@ import { SpecialOffer } from '@/types';
 import OfferProductsView from './OfferProductsView';
 import { useToast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || ' ';
 
 const SpecialOffersManagement = () => {
   const [offers, setOffers] = useState<SpecialOffer[]>([]);

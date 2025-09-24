@@ -111,7 +111,7 @@ export default function Reports() {
   const [customPeriod, setCustomPeriod] = useState('today');
   const [isReportDetailsModalOpen, setIsReportDetailsModalOpen] = useState(false);
   const [selectedReportDetails, setSelectedReportDetails] = useState<ReportDetails | null>(null);
-  const API_URL = 'http://localhost:5000/api';
+  const API_URL = ' /api';
 
   const fetchReportsData = async () => {
     setIsLoading(true);

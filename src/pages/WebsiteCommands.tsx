@@ -84,7 +84,7 @@ interface OrderStats {
   totalRevenue: number;
 }
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = ' ';
 
 const formatCurrencyLocal = (amount: number, language: string) =>
   new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', {

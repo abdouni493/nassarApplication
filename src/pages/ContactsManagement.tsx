@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 // Helper function to handle API calls
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = ' ';
 
 const apiClient = {
   get: async (path: string) => {

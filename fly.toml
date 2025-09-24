@@ -1,15 +1,20 @@
-app = "nassarapp" # change to your Fly app name
+# fly.toml app configuration file generated for nassarapplication on 2025-09-24T17:25:27+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'nassarapplication'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
+
+[[mounts]]
+  source = 'data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
-
-[mounts]
-  source = "data"
-  destination = "/data"

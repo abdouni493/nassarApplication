@@ -1,20 +1,28 @@
-# Build and run Node + Express API with SQLite
+# Use Node 20 slim
 FROM node:20-slim
 
+# Set working directory
 WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install --production
 
-# Copy the rest of the code
+# Copy all files
 COPY . .
 
-# Ensure upload and data directories exist
+# Build front-end (if using React/Vite)
+# If your dist already exists, comment this out
+# RUN npm run build
+
+# Ensure required folders exist
 RUN mkdir -p /app/uploads /data
 
-# Use Fly volume for SQLite persistence
+# Set environment variable for SQLite
 ENV DATABASE_PATH=/data/database.sqlite
 
+# Expose port 8080 (matches fly.toml)
 EXPOSE 8080
+
+# Start server
 CMD ["node", "server.js"]

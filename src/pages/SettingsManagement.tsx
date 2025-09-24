@@ -86,7 +86,7 @@ const SettingsManagement = () => {
   const fetchSettings = async () => {
     try {
       // Replaced fetch with mock API call
-      const res = await fetch("http://localhost:5000/api/settings");
+      const res = await fetch(" /api/settings");
 const data: WebsiteSettingsResponse = await res.json();
       setSettings({
         site_name_fr: data.site_name_fr || '',
@@ -98,10 +98,10 @@ const data: WebsiteSettingsResponse = await res.json();
       });
       
      if (data.logo_url) {
-  setLogoPreview(`http://localhost:5000${data.logo_url}`);
+  setLogoPreview(` ${data.logo_url}`);
 }
 if (data.favicon_url) {
-  setFaviconPreview(`http://localhost:5000${data.favicon_url}`);
+  setFaviconPreview(` ${data.favicon_url}`);
 }
 
     } catch (error) {
@@ -133,7 +133,7 @@ if (data.favicon_url) {
       }
 
       // Replaced fetch with mock API call
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await fetch(" /api/settings", {
   method: "PUT",
   body: formData,
 });
@@ -159,10 +159,10 @@ const updatedSettings: WebsiteSettingsResponse = await res.json();
       
       // Refresh previews
      if (updatedSettings.logo_url) {
-  setLogoPreview(`http://localhost:5000${updatedSettings.logo_url}`);
+  setLogoPreview(` ${updatedSettings.logo_url}`);
 }
 if (updatedSettings.favicon_url) {
-  setFaviconPreview(`http://localhost:5000${updatedSettings.favicon_url}`);
+  setFaviconPreview(` ${updatedSettings.favicon_url}`);
 }
 
     } catch (error) {

@@ -16,11 +16,6 @@ interface Category {
   description_ar?: string;
 }
 
-// ✅ API for data
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
-// ✅ Asset base for images (uploads)
-const ASSET_BASE = import.meta.env.VITE_ASSET_BASE || "";
-
 const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => {
   const { t, language } = useLanguage();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -28,7 +23,8 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/categories`);
+      const res = await fetch("http://localhost:5000/api/categories");
+ // ✅ same pattern as HeroSection
       if (!res.ok) throw new Error("Failed to fetch categories");
       const data: Category[] = await res.json();
       setCategories(data);
@@ -78,11 +74,6 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
                 ? category.description_fr || "Description non fournie"
                 : category.description_ar || "لا يوجد وصف";
 
-            // ✅ Use ASSET_BASE for images (uploads)
-            const imageUrl = category.image
-              ? `${ASSET_BASE}${category.image}`
-              : "/placeholder.svg";
-
             return (
               <div
                 key={category.id}
@@ -93,7 +84,7 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
                 {/* Category Image */}
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={imageUrl}
+                    src={category.image ? `http://localhost:5000${category.image}` : "/placeholder.svg"}
                     alt={categoryName}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -153,4 +144,3 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
 };
 
 export default CategoriesSection;
-

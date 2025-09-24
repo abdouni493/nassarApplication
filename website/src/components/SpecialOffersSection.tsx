@@ -19,8 +19,7 @@ interface OfferProduct extends Omit<Product, 'descriptionFr' | 'descriptionAr' |
   image?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
-const ASSET_BASE = import.meta.env.VITE_ASSET_BASE || "";
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const SpecialOffersSection: React.FC<SpecialOffersSectionProps> = ({ onNavigate }) => {
   const { t, language } = useLanguage();
@@ -45,35 +44,38 @@ const SpecialOffersSection: React.FC<SpecialOffersSectionProps> = ({ onNavigate 
     const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
   }, [offers]);
-
-  const fetchActiveOffers = async () => {
-    try {
-const response = await fetch(`${API_BASE}/special-offers?active=true`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      setOffers(data);
-      
-      // Fetch products for each offer
-      data.forEach((offer: SpecialOffer) => {
-        fetchOfferProducts(offer.id);
-      });
-    } catch (error) {
-      console.error('Error fetching active offers:', error);
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Erreur',
-        description: language === 'ar' ? 'فشل في تحميل العروض' : 'Échec du chargement des offres',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+// In SpecialOffersSection.tsx, modify the fetchActiveOffers function:
+const fetchActiveOffers = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/special-offers`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    const data = await response.json();
+    
+    // Filter offers client-side to only include active ones
+    const activeOffers = data.filter((offer: SpecialOffer) => offer.is_active);
+    setOffers(activeOffers);
+    
+    // Fetch products for each active offer
+    activeOffers.forEach((offer: SpecialOffer) => {
+      fetchOfferProducts(offer.id);
+    });
+  } catch (error) {
+    console.error('Error fetching active offers:', error);
+    toast({
+      title: language === 'ar' ? 'خطأ' : 'Erreur',
+      description: language === 'ar' ? 'فشل في تحميل العروض' : 'Échec du chargement des offres',
+      variant: 'destructive'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchOfferProducts = async (offerId: number) => {
     try {
-const response = await fetch(`${API_BASE}/special-offers/${offerId}/products`);
+      const response = await fetch(`${API_BASE_URL}/api/special-offers/${offerId}/products`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -218,13 +220,7 @@ const response = await fetch(`${API_BASE}/special-offers/${offerId}/products`);
                 {/* Product Image */}
                 <div className="relative h-56 bg-muted overflow-hidden">
                   <img
-                    src={
-  product.image
-    ? product.image.startsWith("http")
-      ? product.image
-      : `${ASSET_BASE}${product.image}`
-    : "/placeholder.svg"
-}
+                    src={product.image ? `${API_BASE_URL}${product.image}` : "/placeholder.svg"}
                     alt={language === 'ar' ? product.nameAr || product.name : product.nameFr || product.name}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {

@@ -19,7 +19,7 @@ interface ContactSectionProps {
   onNavigate: (section: string) => void;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+const API_BASE = 'http://localhost:5000';
 
 const ContactSection: React.FC<ContactSectionProps> = ({ onNavigate }) => {
   const { t } = useLanguage();
@@ -34,7 +34,7 @@ const ContactSection: React.FC<ContactSectionProps> = ({ onNavigate }) => {
   useEffect(() => {
     const fetchContact = async () => {
       try {
-        const res = await fetch(`${API_BASE}/contacts`);
+        const res = await fetch(`${API_BASE}/api/contacts`);
         const data: Contact = await res.json();
         setContact(data || {});
       } catch (error) {

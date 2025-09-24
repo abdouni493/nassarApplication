@@ -35,12 +35,12 @@ const ThankYouPage: React.FC<ThankYouPageProps> = ({ orderData }) => {
   const location = useLocation();
 
   // Use prop if provided, else fallback to location.state
-  const stateData = location.state as OrderData | undefined;
-const data: OrderData | undefined = orderData ?? stateData;
-useEffect(() => {
-  clearCart(); // clear cart on mount
-}, [clearCart]);
+  const data: OrderData | undefined = orderData ?? (location.state as OrderData | undefined);
 
+  useEffect(() => {
+    clearCart(); // clear cart on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!data) {
     return (
@@ -74,7 +74,7 @@ useEffect(() => {
 
           {/* Thank You Message */}
           <div className="mb-8 slide-in-right">
-            <h1 className="text-4xl md:text-5xl font-bold text-success mb-4">{t('thankYou') ?? 'Thank you'}!</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-success mb-4">{t('thankYou')}!</h1>
             <h2 className="text-xl md:text-2xl font-semibold text-foreground mb-6">{t('orderSuccess')}</h2>
             <p className="text-muted-foreground text-lg mb-8">{t('contactSoon')}</p>
           </div>

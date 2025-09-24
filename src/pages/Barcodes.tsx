@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import JsBarcode from "jsbarcode"; // ✅ offline import
+import JsBarcode from "jsbarcode";
 import { Printer, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,67 +12,90 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 
-// --- Language Mapping ---
 const texts = {
   fr: {
-    headerTitle: "Générateur de Codes-Barres",
-    headerSubtitle: "Générez un code-barres et imprimez-le",
-    generateCardTitle: "Générer un Code-Barres",
+    headerTitle: "Générateur de Tickets",
+    headerSubtitle: "Créez un ticket avec code-barres",
+    generateCardTitle: "Nouveau Ticket",
     barcodeLabel: "Numéro du Code-Barres",
+    productLabel: "Nom du produit",
+    priceLabel: "Prix",
     placeholder: "Entrez un numéro",
+    placeholderProduct: "Nom du produit",
+    placeholderPrice: "Prix",
     randomButton: "Aléatoire",
     generateButton: "Générer & Voir l'Aperçu",
-    previewTitle: "Aperçu et Impression",
-    printDocumentTitle: "Impression Codes-Barres",
-    noCode: "Aucun code généré",
+    previewTitle: "Aperçu du Ticket",
+    printDocumentTitle: "Impression Ticket",
+    noCode: "Pas de code généré",
     closeButton: "Fermer",
-    printButton: "Lancer l'impression",
+    printButton: "Imprimer",
     toastErrorTitle: "Erreur",
-    toastErrorMessage: "Veuillez saisir ou générer un code-barres.",
+    toastErrorMessage: "Veuillez saisir toutes les informations.",
   },
   ar: {
-    headerTitle: "مولد الرموز الشريطية",
-    headerSubtitle: "قم بإنشاء وطباعة رمز شريطي",
-    generateCardTitle: "إنشاء رمز شريطي",
+    headerTitle: "مولد التذاكر",
+    headerSubtitle: "إنشاء تذكرة مع رمز شريطي",
+    generateCardTitle: "تذكرة جديدة",
     barcodeLabel: "رقم الرمز الشريطي",
-    placeholder: "أدخل رقمًا",
+    productLabel: "اسم المنتج",
+    priceLabel: "السعر",
+    placeholder: "أدخل رقما",
+    placeholderProduct: "اسم المنتج",
+    placeholderPrice: "السعر",
     randomButton: "عشوائي",
     generateButton: "إنشاء ومعاينة",
-    previewTitle: "معاينة وطباعة",
-    printDocumentTitle: "طباعة الرموز الشريطية",
+    previewTitle: "معاينة التذكرة",
+    printDocumentTitle: "طباعة التذكرة",
     noCode: "لم يتم إنشاء رمز",
     closeButton: "إغلاق",
-    printButton: "بدء الطباعة",
+    printButton: "طباعة",
     toastErrorTitle: "خطأ",
-    toastErrorMessage: "يرجى إدخال أو إنشاء رمز شريطي.",
+    toastErrorMessage: "الرجاء إدخال جميع المعلومات.",
   },
 };
+
+// --- Utility: Generate valid EAN-13 ---
+function generateEAN13(): string {
+  let digits = "";
+  for (let i = 0; i < 12; i++) {
+    digits += Math.floor(Math.random() * 10).toString();
+  }
+  const checkDigit = calcEAN13CheckDigit(digits);
+  return digits + checkDigit;
+}
+function calcEAN13CheckDigit(digits: string): number {
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const n = parseInt(digits[i]);
+    sum += i % 2 === 0 ? n : n * 3;
+  }
+  const mod = sum % 10;
+  return mod === 0 ? 0 : 10 - mod;
+}
 
 export default function Barcodes() {
   const { language, isRTL } = useLanguage();
   const { toast } = useToast();
 
   const [barcodeText, setBarcodeText] = useState("");
+  const [productName, setProductName] = useState("");
+  const [price, setPrice] = useState("");
   const [barcodeImage, setBarcodeImage] = useState<string | null>(null);
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   const printAreaRef = useRef<HTMLDivElement>(null);
 
-  // Generate random 12-digit code
   const generateRandomBarcodeText = () => {
-    let result = "";
-    for (let i = 0; i < 12; i++) {
-      result += Math.floor(Math.random() * 10).toString();
-    }
-    setBarcodeText(result);
+    const code = generateEAN13();
+    setBarcodeText(code);
   };
 
-  // Generate barcode as image
   const generateBarcode = () => {
-    if (!barcodeText) {
+    if (!barcodeText || !productName || !price) {
       toast({
         title: texts[language].toastErrorTitle,
         description: texts[language].toastErrorMessage,
@@ -81,24 +104,21 @@ export default function Barcodes() {
       return;
     }
 
-    // Create a hidden canvas
     const canvas = document.createElement("canvas");
     JsBarcode(canvas, barcodeText, {
-      format: "CODE128",
+      format: "EAN13",
       displayValue: true,
-      fontSize: 18,
+      fontSize: 14,
       width: 2,
-      height: 80,
-      margin: 10,
+      height: 60,
+      margin: 5,
     });
 
-    // Convert canvas to Data URL (base64 PNG)
     const imgData = canvas.toDataURL("image/png");
     setBarcodeImage(imgData);
     setPrintDialogOpen(true);
   };
 
-  // Print barcode
   const handlePrint = () => {
     const printContent = printAreaRef.current;
     if (printContent) {
@@ -109,15 +129,17 @@ export default function Barcodes() {
             <head>
               <title>${texts[language].printDocumentTitle}</title>
               <style>
-                body { margin: 0; padding: 10mm; font-family: sans-serif; display: flex; justify-content: center; align-items: center; }
-                img { max-width: 100%; }
+                body { margin:0; padding:0; font-family: monospace; }
+                .ticket { width:220px; padding:4px; text-align:center; }
+                .title { font-weight:bold; font-size:14px; }
+                .price { font-size:12px; margin-bottom:4px; }
+                img { width:100%; }
               </style>
             </head>
             <body>${printContent.innerHTML}</body>
           </html>
         `);
         printWindow.document.close();
-
         setTimeout(() => {
           printWindow.print();
           printWindow.onafterprint = () => printWindow.close();
@@ -133,7 +155,6 @@ export default function Barcodes() {
       }`}
       dir={isRTL ? "rtl" : "ltr"}
     >
-      {/* Header */}
       <div className="flex items-center justify-between border-b pb-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -146,7 +167,6 @@ export default function Barcodes() {
         <QrCode className="h-10 w-10 text-primary" />
       </div>
 
-      {/* Input */}
       <Card className="shadow-lg rounded-xl">
         <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-xl p-4">
           <CardTitle className="text-xl font-semibold">
@@ -155,19 +175,33 @@ export default function Barcodes() {
         </CardHeader>
         <CardContent className="p-6 space-y-5">
           <div>
-            <Label htmlFor="barcodeText" className="font-medium text-gray-700">
-              {texts[language].barcodeLabel}
-            </Label>
+            <Label>{texts[language].productLabel}</Label>
+            <Input
+              type="text"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder={texts[language].placeholderProduct}
+            />
+          </div>
+          <div>
+            <Label>{texts[language].priceLabel}</Label>
+            <Input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder={texts[language].placeholderPrice}
+            />
+          </div>
+          <div>
+            <Label>{texts[language].barcodeLabel}</Label>
             <div className="flex mt-1">
               <Input
-                id="barcodeText"
                 type="text"
                 value={barcodeText}
                 onChange={(e) =>
                   setBarcodeText(e.target.value.replace(/[^0-9]/g, ""))
                 }
                 placeholder={texts[language].placeholder}
-                className="block w-full rounded-l-md"
               />
               <Button
                 onClick={generateRandomBarcodeText}
@@ -180,30 +214,28 @@ export default function Barcodes() {
           <Button
             onClick={generateBarcode}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3"
-            disabled={!barcodeText}
           >
             <Printer className="mr-2 h-5 w-5" /> {texts[language].generateButton}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Preview Dialog */}
       <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
-        <DialogContent className="max-w-xl p-6">
+        <DialogContent className="max-w-sm p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              {texts[language].previewTitle}
-            </DialogTitle>
+            <DialogTitle>{texts[language].previewTitle}</DialogTitle>
           </DialogHeader>
 
           <div
             ref={printAreaRef}
-            className="flex justify-center items-center p-4 border rounded bg-gray-50"
+            className="ticket border rounded bg-white p-2 text-center"
           >
+            <div className="title">{productName}</div>
+            <div className="price">{price} DZD</div>
             {barcodeImage ? (
-              <img src={barcodeImage} alt="Generated Barcode" />
+              <img src={barcodeImage} alt="barcode" />
             ) : (
-              <p className="text-gray-400">{texts[language].noCode}</p>
+              <p>{texts[language].noCode}</p>
             )}
           </div>
 

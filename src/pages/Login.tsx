@@ -151,7 +151,7 @@ body: JSON.stringify({ login: credentials.login, password: credentials.password 
                       type="text"
                       value={credentials.login}
                       onChange={(e) => setCredentials(prev => ({ ...prev, login: e.target.value }))}
-                      placeholder="admin ou admin@Nasser.ma"
+                      placeholder="Email ou Nom d'utilisateur"
                       className="pl-10"
                       required
                     />

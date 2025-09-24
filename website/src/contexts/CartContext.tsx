@@ -19,6 +19,7 @@ export interface Product {
 
 // Cart item extends Product and adds selling_price + quantity
 export interface CartItem extends Product {
+  offer_price: number;
   selling_price: number;
   quantity: number;
 }

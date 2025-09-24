@@ -15,7 +15,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import { Category } from "@/types";
 
 // ⚡ If you have a proxy in vite.config.ts, you can replace with ""
-const API_BASE = "http://localhost:5000";
+const API_BASE = " ";
 
 interface ProductsViewProps {
   category: Category;

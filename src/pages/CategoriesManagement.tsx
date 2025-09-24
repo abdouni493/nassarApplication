@@ -25,7 +25,7 @@ interface FormData {
 }
 
 // ⚡ If you have a proxy in vite.config.ts, you can replace with ""
-const API_BASE = "http://localhost:5000";
+const API_BASE = " ";
 
 const CategoriesManagement = () => {
   const [categories, setCategories] = useState<Category[]>([]);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { 
   Grid, 
   Tag, 
-  Percent, 
+  Percent,  
   Phone, 
   Settings as SettingsIcon 
 } from 'lucide-react';

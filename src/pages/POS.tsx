@@ -112,7 +112,7 @@ export default function POS() {
   // --- Fetch Products from API ---
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products');
+      const response = await fetch(' /api/products');
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -296,7 +296,7 @@ createdByType: user.role === "employee" ? "employee" : "admin",
 
 
 
-      const response = await fetch('http://localhost:5000/api/invoices', {
+      const response = await fetch(' /api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
@@ -308,7 +308,7 @@ createdByType: user.role === "employee" ? "employee" : "admin",
 
       const createdInvoice = await response.json();
       
-      const invoiceResponse = await fetch(`http://localhost:5000/api/invoices/${createdInvoice.id}`);
+      const invoiceResponse = await fetch(` /api/invoices/${createdInvoice.id}`);
       if (!invoiceResponse.ok) {
         throw new Error('Failed to fetch created invoice details');
       }

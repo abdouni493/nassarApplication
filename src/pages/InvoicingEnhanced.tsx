@@ -124,7 +124,7 @@ export default function InvoicingEnhanced() {
 
   const fetchStats = async () => {
     try {
-const res = await fetch('http://localhost:5000/api/dashboard/stats');
+const res = await fetch(' /api/dashboard/stats');
       if (res.ok) {
         const data = await res.json();
   // Adjust the state update to correctly map the server response
@@ -142,7 +142,7 @@ const res = await fetch('http://localhost:5000/api/dashboard/stats');
 const fetchInvoices = async (dateRange: string) => {
   try {
     setLoading(true);
-    let url = 'http://localhost:5000/api/invoices?type=purchase';
+    let url = ' /api/invoices?type=purchase';
     if (dateRange !== 'all') {
       url += `&dateRange=${dateRange}`;
     }
@@ -157,7 +157,7 @@ const fetchInvoices = async (dateRange: string) => {
           let productNames = '';
 
           try {
-            const itemsRes = await fetch(`http://localhost:5000/api/invoices/${invoice.id}`);
+            const itemsRes = await fetch(` /api/invoices/${invoice.id}`);
             if (itemsRes.ok) {
               const fullInvoice = await itemsRes.json();
               productNames = fullInvoice.items.map((it: any) => it.product_name).join(', ');
@@ -197,7 +197,7 @@ const fetchInvoices = async (dateRange: string) => {
     fetchInvoices(dateFilter);
     const fetchSuppliers = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/suppliers');
+        const res = await fetch(' /api/suppliers');
         if (res.ok) {
           const suppliersData = await res.json();
           setSuppliers(suppliersData);
@@ -215,7 +215,7 @@ const fetchInvoices = async (dateRange: string) => {
     const searchProducts = async () => {
       if (productSearch.length > 2) {
         try {
-          const response = await fetch(`http://localhost:5000/api/products?search=${encodeURIComponent(productSearch)}`);
+          const response = await fetch(` /api/products?search=${encodeURIComponent(productSearch)}`);
           if (response.ok) {
             const results = await response.json();
             setSearchResults(results.slice(0, 5));
@@ -375,7 +375,7 @@ const invoiceData = {
 };
 
 
-      const invoiceResponse = await fetch('http://localhost:5000/api/invoices', {
+      const invoiceResponse = await fetch(' /api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
@@ -405,7 +405,7 @@ const invoiceData = {
 
   const deleteInvoice = async (invoiceId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${invoiceId}`, {
+      const response = await fetch(` /api/invoices/${invoiceId}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -430,7 +430,7 @@ const invoiceData = {
 
   const viewInvoice = async (invoice: Invoice) => {
   try {
-    const response = await fetch(`http://localhost:5000/api/invoices/${invoice.id}`);
+    const response = await fetch(` /api/invoices/${invoice.id}`);
     if (response.ok) {
       const fullInvoice = await response.json();
 
@@ -468,7 +468,7 @@ const invoiceData = {
 
   const editInvoice = async (invoice: Invoice) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${invoice.id}`);
+      const response = await fetch(` /api/invoices/${invoice.id}`);
       if (response.ok) {
         const fullInvoice = await response.json();
         setSelectedProducts(fullInvoice.items.map((item: any) => ({
@@ -521,7 +521,7 @@ const invoiceData = {
         }))
       };
 
-      const invoiceResponse = await fetch(`http://localhost:5000/api/invoices/${selectedInvoice.id}`, {
+      const invoiceResponse = await fetch(` /api/invoices/${selectedInvoice.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)

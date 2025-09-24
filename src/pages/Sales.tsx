@@ -131,7 +131,7 @@ function EditInvoiceDialog({ isOpen, onClose, invoice, onUpdate }: {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${invoice.id}/pay`, {
+      const response = await fetch(` /api/invoices/${invoice.id}/pay`, {
   method: 'PUT',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ amount_paid: additionalPayment }),
@@ -436,7 +436,7 @@ const isEmployee = currentUser?.role === 'employee';
   const fetchSalesData = async () => {
     try {
       // Fetch stats
-      const statsResponse = await fetch('http://localhost:5000/api/dashboard/stats');
+      const statsResponse = await fetch(' /api/dashboard/stats');
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setSalesStats({
@@ -453,7 +453,7 @@ const isEmployee = currentUser?.role === 'employee';
       }
 
       // Fetch invoices with filters
-      let invoicesUrl = 'http://localhost:5000/api/invoices?type=sale';
+      let invoicesUrl = ' /api/invoices?type=sale';
 if (searchQuery) {
   invoicesUrl += `&search=${encodeURIComponent(searchQuery)}`;
 }
@@ -541,7 +541,7 @@ setSalesStats(prev => prev
 
   const handlePrintInvoice = async (invoiceId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${invoiceId}`);
+      const response = await fetch(` /api/invoices/${invoiceId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch invoice details for printing');
       }
@@ -560,7 +560,7 @@ setSalesStats(prev => prev
 
   const handleDeleteInvoice = async (invoiceId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/invoices/${invoiceId}`, {
+      const response = await fetch(` /api/invoices/${invoiceId}`, {
         method: 'DELETE',
       });
 

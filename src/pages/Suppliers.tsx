@@ -41,7 +41,7 @@ import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // Define the API URL
-const API_URL = 'http://localhost:5000/api';
+const API_URL = ' /api';
 
 interface Supplier {
   id: number;

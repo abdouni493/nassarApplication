@@ -140,7 +140,7 @@ export default function Dashboard() {
     setIsLoading(true);
     setHasError(false);
     try {
-      const response = await fetch("http://localhost:5000/api/dashboard/stats", {
+      const response = await fetch("  /api/dashboard/stats", {
         headers: { "x-user-email": user?.email || "" }
       });
       if (!response.ok) {

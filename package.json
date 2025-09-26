@@ -6,10 +6,12 @@
  "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "website:build": "cd website && npm run build",
-    "build:all": "npm run build && npm run website:build",
+    "lint": "eslint .",
+    "preview": "vite preview",
     "server": "node server.js",
     "website": "cd website && vite",
+    "website:build": "cd website && npm run build",
+    "build:all": "npm run build && npm run website:build",
     "start": "npm-run-all --parallel server dev website",
     "start:prod": "node server.js"
   },

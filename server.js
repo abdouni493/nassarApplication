@@ -2667,6 +2667,13 @@ app.delete('/api/orders/:id', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, "dist")));
 
+if (fs.existsSync(websiteDist)) {
+  app.use("/website", express.static(websiteDist));
+  app.get("/website/*", (req, res) => {
+    res.sendFile(path.join(websiteDist, "index.html"));
+  });
+}
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });

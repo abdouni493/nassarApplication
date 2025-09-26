@@ -23,7 +23,7 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/categories");
+      const res = await fetch(" /api/categories");
  // ✅ same pattern as HeroSection
       if (!res.ok) throw new Error("Failed to fetch categories");
       const data: Category[] = await res.json();
@@ -84,7 +84,7 @@ const CategoriesSection: React.FC<CategoriesSectionProps> = ({ onNavigate }) => 
                 {/* Category Image */}
                 <div className="relative h-48 overflow-hidden">
                   <img
-                    src={category.image ? `http://localhost:5000${category.image}` : "/placeholder.svg"}
+                    src={category.image ? ` ${category.image}` : "/placeholder.svg"}
                     alt={categoryName}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />

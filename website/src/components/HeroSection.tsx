@@ -28,7 +28,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate }) => {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/settings');
+      const res = await fetch(' /api/settings');
       const data: WebsiteSettingsResponse = await res.json();
       setSettings(data);
     } catch (error) {
@@ -64,7 +64,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onNavigate }) => {
           {settings.logo_url && (
             <div className="mx-auto mb-6 w-24 h-24 rounded-full overflow-hidden border-4 border-white/50 animate-fade-in">
               <img
-                src={`http://localhost:5000${settings.logo_url}`}
+                src={` ${settings.logo_url}`}
                 alt="Site Logo"
                 className="w-full h-full object-cover"
               />

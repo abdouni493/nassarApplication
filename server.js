@@ -1,42 +1,36 @@
-import express from "express";
-import cors from "cors";
-import sqlite3 from "sqlite3";
-import { open } from "sqlite";
-import path from "path";
-import fs from "fs";
+import express from 'express';
+import cors from 'cors';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import path from 'path';
+import fs from 'fs';
 import multer from "multer";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const app = express();
 const upload = multer({ dest: "uploads/" });
+app.use(cors({
+  origin: ["http://localhost:8080", "http://localhost:8081"],
+  credentials: true
+}));
 
-// ✅ CORS
-app.use(
-  cors({
-    origin: [
-      "http://localhost:8080",
-      "http://localhost:8081",
-      "https://nassarap.fly.dev",
-      "https://nassarapplication.fly.dev", // add your Fly app name
-    ],
-    credentials: true,
-  })
-);
+app.use(express.json({ limit: '10mb' })); // or higher if needed
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
-// === Backup Import API ===
+// ✅ Import backup route here
 app.post("/api/backup/import", upload.single("backup"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-    const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "database.sqlite");
+    const dbPath = path.join(process.cwd(), "database.sqlite");
     fs.copyFileSync(req.file.path, dbPath);
     fs.unlinkSync(req.file.path);
+
     res.json({ message: "Backup imported successfully. Please restart the server." });
   } catch (err) {
     console.error("❌ Backup import error:", err);
@@ -44,15 +38,34 @@ app.post("/api/backup/import", upload.single("backup"), async (req, res) => {
   }
 });
 
-// === Database connection ===
-let db;
-async function initDb() {
-  db = await open({
-    filename: path.join(process.cwd(), "database.sqlite"),
-    driver: sqlite3.Database,
-  });
 
-  // Orders table
+let db;
+
+// Helper to add missing columns safely
+async function ensureColumn(table, name, ddl, fallbackValue = null) {
+  try {
+    const cols = await db.all(`PRAGMA table_info(${table});`);
+    const found = cols.some((c) => c.name === name);
+    if (!found) {
+      console.log(`⏳ Adding missing column '${name}' to table '${table}'...`);
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl};`);
+      if (fallbackValue !== null) {
+        await db.run(`UPDATE ${table} SET ${name} = ?`, [fallbackValue]);
+      }
+      console.log(`✅ Column '${name}' added successfully.`);
+    }
+  } catch (err) {
+    console.error(`❌ Failed to add column '${name}' to table '${table}':`, err);
+  }
+}
+
+// Function to initialize the database and tables
+async function initDb() {
+  try {
+
+
+
+   // Orders table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2637,6 +2650,22 @@ app.put('/api/orders/:id/status', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Delete order
+app.delete('/api/orders/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Delete order items first to maintain foreign key integrity
+    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
+    await db.run('DELETE FROM orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete order error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 // Delete order
 app.delete('/api/orders/:id', async (req, res) => {
   const { id } = req.params;
@@ -2651,31 +2680,44 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 🚀 CORRECTED ROUTING AND SERVER START BELOW THIS LINE
+// ------------------------------------------------------------------
 
-// === Serve React apps ===
-app.use(express.static(path.join(__dirname, "dist")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+// Define the port (Should only be done once)
+const PORT = process.env.PORT || 8080;
+
+// --- 1. WEBSITE APPLICATION ROUTING (MUST BE CHECKED BEFORE ROOT) ---
+
+// Define the path to the website's built files (autoParts/website/dist)
+const WEBSITE_BUILD_PATH = path.join(process.cwd(), 'website/dist');
+
+// Serve the website's static assets (CSS, JS, images) when the URL starts with /website/
+app.use('/website', express.static(WEBSITE_BUILD_PATH));
+
+// Catch-all for the Website application's client-side routing (e.g., /website/about)
+// This serves the website's index.html for all routes beginning with /website/
+app.get('/website/*', (req, res) => {
+  res.sendFile(path.join(WEBSITE_BUILD_PATH, 'index.html'));
 });
 
-app.use("/website", express.static(path.join(__dirname, "website", "dist")));
-app.get("/website/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
+// --- 2. ROOT APPLICATION ROUTING (CHECKED LAST) ---
+
+// Define the path to the root app's built files (autoParts/dist)
+const ROOT_BUILD_PATH = path.join(process.cwd(), 'dist');
+
+// Serve the root app's static assets from the root path /
+// NOTE: You already use app.use(express.static(path.join(__dirname, "uploads"))) earlier in your file, 
+// so this only handles the 'dist' folder.
+app.use(express.static(ROOT_BUILD_PATH));
+
+// Catch-all for the Root application's client-side routing (e.g., /dashboard)
+// This MUST be the very last route handler. It serves the root app's index.html
+// for everything else that hasn't been matched by /api, /uploads, or /website/*.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
+// --- 3. START SERVER (Should only be done once) ---
 
-// === Start only after DB init ===
-initDb()
-  .then(() => {
-    const PORT = process.env.PORT || 8080;
-    app.listen(PORT, () => {
-      console.log(`✅ Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("❌ Failed to init DB:", err);
-    process.exit(1);
-  });
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

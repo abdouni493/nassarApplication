@@ -1,71 +1,60 @@
-import express from 'express';
-import cors from 'cors';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
-import path from 'path';
-import fs from 'fs';
+import express from "express";
+import cors from "cors";
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
+import path from "path";
+import fs from "fs";
 import multer from "multer";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const app = express();
 const upload = multer({ dest: "uploads/" });
-app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:8081"],
-  credentials: true
-}));
 
-app.use(express.json({ limit: '10mb' })); // or higher if needed
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// ✅ CORS: allow local dev + production domain
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:8081",
+      "https://nassarap.fly.dev",
+    ],
+    credentials: true,
+  })
+);
 
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
-// ✅ Import backup route here
+// === Backup Import API ===
 app.post("/api/backup/import", upload.single("backup"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
-
     const dbPath = path.join(process.cwd(), "database.sqlite");
     fs.copyFileSync(req.file.path, dbPath);
     fs.unlinkSync(req.file.path);
-
-    res.json({ message: "Backup imported successfully. Please restart the server." });
+    res.json({
+      message: "Backup imported successfully. Please restart the server.",
+    });
   } catch (err) {
     console.error("❌ Backup import error:", err);
     res.status(500).json({ message: "Failed to import backup" });
   }
 });
 
-
+// === Database connection ===
 let db;
-
-// Helper to add missing columns safely
-async function ensureColumn(table, name, ddl, fallbackValue = null) {
-  try {
-    const cols = await db.all(`PRAGMA table_info(${table});`);
-    const found = cols.some((c) => c.name === name);
-    if (!found) {
-      console.log(`⏳ Adding missing column '${name}' to table '${table}'...`);
-      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl};`);
-      if (fallbackValue !== null) {
-        await db.run(`UPDATE ${table} SET ${name} = ?`, [fallbackValue]);
-      }
-      console.log(`✅ Column '${name}' added successfully.`);
-    }
-  } catch (err) {
-    console.error(`❌ Failed to add column '${name}' to table '${table}':`, err);
-  }
-}
-
-// Function to initialize the database and tables
 async function initDb() {
-  try {
+  db = await open({
+    filename: path.join(process.cwd(), "database.sqlite"),
+    driver: sqlite3.Database,
+  });
 
-
-
-   // Orders table
+  // Orders table
   await db.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2667,11 +2656,24 @@ app.delete('/api/orders/:id', async (req, res) => {
 
 
 
+// Root React app
 app.use(express.static(path.join(__dirname, "dist")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+// Website React app under /website
+app.use("/website", express.static(path.join(__dirname, "website", "dist")));
+app.get("/website/*", (req, res) => {
+  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
+});
+
+// Catch-all for root app routes
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
+// === Start server ===
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);

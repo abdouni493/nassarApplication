@@ -2665,86 +2665,13 @@ app.delete('/api/orders/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-// ... (All your API routes must be defined before this block)
-// --- 1. STATIC ASSET SERVING AND CATCH-ALL ROUTES ---
 
-// Allow frontend to load uploaded images (already in your code, keeping it here for correct order)
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-// Define paths for React builds
-const WEBSITE_DIST_PATH = path.join(__dirname, 'website', 'dist');
-const ROOT_DIST_PATH = path.join(__dirname, 'dist');
-
-// Serve static files for the WEBSITE application from the /website path
-app.use('/website', express.static(WEBSITE_DIST_PATH));
-
-// Catch-all for the WEBSITE application's deep links (e.g., /website/about)
-app.get('/website/*', (req, res) => {
-  if (req.accepts('html')) {
-    res.sendFile(path.join(WEBSITE_DIST_PATH, 'index.html'));
-  } else {
-    res.status(404).end();
-  }
+app.use(express.static(path.join(__dirname, "dist")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// Serve static files for the ROOT React application (must come after /website)
-app.use(express.static(ROOT_DIST_PATH));
-
-// Catch-all for the ROOT application (MUST be the final route)
-app.get('*', (req, res) => {
-  // Prevent unhandled API calls from loading index.html
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ message: 'API endpoint not found' });
-  }
-
-  // Serve the main app's index.html for all other routes (for React Router)
-  res.sendFile(path.join(ROOT_DIST_PATH, 'index.html'), (err) => {
-    if (err) {
-      console.error('Error sending index.html:', err);
-      res.status(500).send("Server Error: Main application entry file not found.");
-    }
-  });
-});
-
-
-// --- 2. SERVER STARTUP LOGIC ---
-
-async function startServer() {
-  try {
-    // Database Initialization (moved here to run before listening)
-    const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
-    
-    // Attempt to open the DB
-    db = await open({
-      filename: dbPath,
-      driver: sqlite3.Database,
-    });
-    
-    // Initialize tables (this function already handles process exit on failure)
-    await initDb();
-    
-    // Start Express Server
-    const PORT = process.env.PORT || 5000;
-    
-    // Listen on 0.0.0.0 (all interfaces) as required by Fly.io and most containers
-    app.listen(PORT, '0.0.0.0', () => { 
-      console.log(`✅ Server is running on http://0.0.0.0:${PORT}`);
-      console.log(`Main App: http://localhost:${PORT}`);
-      console.log(`Website: http://localhost:${PORT}/website`);
-    });
-
-  } catch (err) {
-    // If opening DB or starting server fails
-    console.error('❌ FATAL: Server failed to start due to an unhandled error:', err);
-    process.exit(1); // Exit process, which allows Fly.io to restart the machine
-  }
-}
-
-// Execute the final server startup routine
-startServer();
-
-// 5. Start the server (Use process.env.PORT for Fly.io)
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
 });

@@ -30,7 +30,7 @@ interface OrderFormData {
   paymentMethod: 'cod' | 'dahabia';
 }
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = ' ';
 
 const OrderForm: React.FC<OrderFormProps> = ({ onOrderSubmit }) => {
   const { t, language } = useLanguage();

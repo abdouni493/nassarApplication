@@ -8,7 +8,7 @@ interface CartSectionProps {
   onNavigate: (section: string) => void;
 }
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = " ";
 
 const CartSection: React.FC<CartSectionProps> = ({ onNavigate }) => {
   const { t, language } = useLanguage();

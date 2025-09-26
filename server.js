@@ -13,13 +13,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const upload = multer({ dest: "uploads/" });
 
-// ✅ CORS: allow local dev + production domain
+// ✅ CORS
 app.use(
   cors({
     origin: [
       "http://localhost:8080",
       "http://localhost:8081",
       "https://nassarap.fly.dev",
+      "https://nassarapplication.fly.dev", // add your Fly app name
     ],
     credentials: true,
   })
@@ -31,15 +32,12 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 // === Backup Import API ===
 app.post("/api/backup/import", upload.single("backup"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-    const dbPath = path.join(process.cwd(), "database.sqlite");
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "database.sqlite");
     fs.copyFileSync(req.file.path, dbPath);
     fs.unlinkSync(req.file.path);
-    res.json({
-      message: "Backup imported successfully. Please restart the server.",
-    });
+    res.json({ message: "Backup imported successfully. Please restart the server." });
   } catch (err) {
     console.error("❌ Backup import error:", err);
     res.status(500).json({ message: "Failed to import backup" });
@@ -2654,29 +2652,30 @@ app.delete('/api/orders/:id', async (req, res) => {
 });
 
 
-// Root React app
+// === Serve React apps ===
 app.use(express.static(path.join(__dirname, "dist")));
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// Website React app under /website
 app.use("/website", express.static(path.join(__dirname, "website", "dist")));
 app.get("/website/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
 });
 
-// Catch-all for root app routes
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// Définir le port en utilisant la variable d'environnement PORT (utilisée par Fly.io)
-// Sinon, utiliser 3000 par défaut pour le développement local.
-const PORT = process.env.PORT || 3000;
-
-// Démarrer le serveur et écouter sur toutes les interfaces réseau (0.0.0.0)
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-  console.log('App successfully started.');
-});
+// === Start only after DB init ===
+initDb()
+  .then(() => {
+    const PORT = process.env.PORT || 8080;
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ Failed to init DB:", err);
+    process.exit(1);
+  });

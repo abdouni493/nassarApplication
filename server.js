@@ -2678,7 +2678,6 @@ app.delete('/api/orders/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 // ------------------------------------------------------------------
 // 🚀 CORRECTED ROUTING AND SERVER START BELOW THIS LINE
 // ------------------------------------------------------------------
@@ -2686,50 +2685,36 @@ app.delete('/api/orders/:id', async (req, res) => {
 // Define the port (Should only be done once)
 const PORT = process.env.PORT || 8080;
 
-// --- 1. WEBSITE APPLICATION ROUTING (MUST BE CHECKED BEFORE ROOT) ---
-
-// Define the path to the website's built files
+// --- 1. WEBSITE APPLICATION ROUTING ---
 const WEBSITE_BUILD_PATH = path.join(__dirname, 'website/dist');
 
-// Only serve website if the dist folder exists
+// Check if website build exists and serve it
 if (fs.existsSync(WEBSITE_BUILD_PATH)) {
   console.log('✅ Website build found at:', WEBSITE_BUILD_PATH);
   
-  // Serve the website's static assets (CSS, JS, images) when the URL starts with /website/
+  // Serve website static files
   app.use('/website', express.static(WEBSITE_BUILD_PATH));
-
-  // Catch-all for the Website application's client-side routing (e.g., /website/about)
-  // This serves the website's index.html for all routes beginning with /website/
+  
+  // Handle website client-side routing
   app.get('/website/*', (req, res) => {
-    const websiteIndexPath = path.join(WEBSITE_BUILD_PATH, 'index.html');
-    if (fs.existsSync(websiteIndexPath)) {
-      res.sendFile(websiteIndexPath);
-    } else {
-      res.status(404).json({ 
-        message: 'Website not built yet', 
-        path: websiteIndexPath 
-      });
-    }
+    res.sendFile(path.join(WEBSITE_BUILD_PATH, 'index.html'));
   });
 } else {
-  console.log('⚠️  Website build not found at:', WEBSITE_BUILD_PATH);
+  console.log('⚠️ Website build not found at:', WEBSITE_BUILD_PATH);
 }
 
-// --- 2. ROOT APPLICATION ROUTING (CHECKED LAST) ---
-
-// Define the path to the root app's built files
+// --- 2. ROOT APPLICATION ROUTING ---
 const ROOT_BUILD_PATH = path.join(__dirname, 'dist');
 
-// Serve the root app's static assets from the root path /
+// Serve root app static files
 app.use(express.static(ROOT_BUILD_PATH));
 
-// Catch-all for the Root application's client-side routing (e.g., /dashboard)
-// This MUST be the very last route handler. It serves the root app's index.html
-// for everything else that hasn't been matched by /api, /uploads, or /website/*.
+// Handle root app client-side routing (exclude website routes)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
+  if (!req.path.startsWith('/website')) {
+    res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
+  }
 });
 
-// --- 3. START SERVER (Should only be done once) ---
-
+// --- 3. START SERVER ---
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

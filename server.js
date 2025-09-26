@@ -2652,25 +2652,58 @@ app.put('/api/orders/:id/status', async (req, res) => {
 });
 
 // Delete order
+// Delete order
 app.delete('/api/orders/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Delete order items first to maintain foreign key integrity
-    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
-    await db.run('DELETE FROM orders WHERE id = ?', [id]);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Delete order error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
+  const { id } = req.params;
+  try {
+    // Delete order items first to maintain foreign key integrity
+    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
+    await db.run('DELETE FROM orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete order error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
-app.use(express.static(path.join(__dirname, "dist")));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
-});
+// ------------------------------------------------------------------
+// 🚀 CORRECTED ROUTING AND SERVER START BELOW THIS LINE
+// ------------------------------------------------------------------
 
+// Define the port (Should only be done once)
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+
+// --- 1. WEBSITE APPLICATION ROUTING (MUST BE CHECKED BEFORE ROOT) ---
+
+// Define the path to the website's built files (autoParts/website/dist)
+const WEBSITE_BUILD_PATH = path.join(process.cwd(), 'website/dist');
+
+// Serve the website's static assets (CSS, JS, images) when the URL starts with /website/
+app.use('/website', express.static(WEBSITE_BUILD_PATH));
+
+// Catch-all for the Website application's client-side routing (e.g., /website/about)
+// This serves the website's index.html for all routes beginning with /website/
+app.get('/website/*', (req, res) => {
+  res.sendFile(path.join(WEBSITE_BUILD_PATH, 'index.html'));
 });
+
+// --- 2. ROOT APPLICATION ROUTING (CHECKED LAST) ---
+
+// Define the path to the root app's built files (autoParts/dist)
+const ROOT_BUILD_PATH = path.join(process.cwd(), 'dist');
+
+// Serve the root app's static assets from the root path /
+// NOTE: You already use app.use(express.static(path.join(__dirname, "uploads"))) earlier in your file, 
+// so this only handles the 'dist' folder.
+app.use(express.static(ROOT_BUILD_PATH));
+
+// Catch-all for the Root application's client-side routing (e.g., /dashboard)
+// This MUST be the very last route handler. It serves the root app's index.html
+// for everything else that hasn't been matched by /api, /uploads, or /website/*.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
+});
+
+// --- 3. START SERVER (Should only be done once) ---
+
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

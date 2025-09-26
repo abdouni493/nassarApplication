@@ -405,11 +405,10 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
 }
 
 // Init database and start the server
-// DELETE THIS BLOCK:
-// Init database and start the server
 (async () => {
   try {
    const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
+
     
     db = await open({
       filename: dbPath,

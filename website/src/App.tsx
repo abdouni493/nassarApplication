@@ -10,8 +10,6 @@ import NotFound from "./pages/NotFound";
 import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
-// Use environment variable for backend
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -20,7 +18,8 @@ const App = () => (
         <CartProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          {/* ADD BASENAME FOR PRODUCTION */}
+          <BrowserRouter basename={import.meta.env.PROD ? '/website' : ''}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/admin" element={<AdminPanel onNavigate={(section) => {
@@ -28,7 +27,6 @@ const App = () => (
                   window.location.href = '/';
                 }
               }} />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

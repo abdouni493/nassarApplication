@@ -2639,42 +2639,44 @@ app.put('/api/orders/:id/status', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 // Delete order
 app.delete('/api/orders/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Delete order items first to maintain foreign key integrity
-    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
-    await db.run('DELETE FROM orders WHERE id = ?', [id]);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Delete order error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
+  const { id } = req.params;
+  try {
+    // Delete order items first to maintain foreign key integrity
+    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
+    await db.run('DELETE FROM orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete order error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
-
 
 
 // Root React app
 app.use(express.static(path.join(__dirname, "dist")));
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 // Website React app under /website
 app.use("/website", express.static(path.join(__dirname, "website", "dist")));
 app.get("/website/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "website", "dist", "index.html"));
 });
 
 // Catch-all for root app routes
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// === Start server ===
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+// Définir le port en utilisant la variable d'environnement PORT (utilisée par Fly.io)
+// Sinon, utiliser 3000 par défaut pour le développement local.
+const PORT = process.env.PORT || 3000;
+
+// Démarrer le serveur et écouter sur toutes les interfaces réseau (0.0.0.0)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+  console.log('App successfully started.');
 });

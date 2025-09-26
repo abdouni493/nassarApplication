@@ -8,7 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 interface OrderItem {
   id: string;
   nameAr?: string;
-  nameFr?: string;
+  nameFr?: string; 
   quantity: number;
   price: number;
   total?: number;

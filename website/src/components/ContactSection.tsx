@@ -19,7 +19,7 @@ interface ContactSectionProps {
   onNavigate: (section: string) => void;
 }
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = ' ';
 
 const ContactSection: React.FC<ContactSectionProps> = ({ onNavigate }) => {
   const { t } = useLanguage();

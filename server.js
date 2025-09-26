@@ -2665,19 +2665,18 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
-
-// Delete order
+// Delete order (remove duplicate route)
 app.delete('/api/orders/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Delete order items first to maintain foreign key integrity
-    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
-    await db.run('DELETE FROM orders WHERE id = ?', [id]);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('❌ Delete order error:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
+  const { id } = req.params;
+  try {
+    // Delete order items first to maintain foreign key integrity
+    await db.run('DELETE FROM order_items WHERE order_id = ?', [id]);
+    await db.run('DELETE FROM orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete order error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // ------------------------------------------------------------------
@@ -2689,33 +2688,46 @@ const PORT = process.env.PORT || 8080;
 
 // --- 1. WEBSITE APPLICATION ROUTING (MUST BE CHECKED BEFORE ROOT) ---
 
-// Define the path to the website's built files (autoParts/website/dist)
-const WEBSITE_BUILD_PATH = path.join(process.cwd(), 'website/dist');
+// Define the path to the website's built files
+const WEBSITE_BUILD_PATH = path.join(__dirname, 'website/dist');
 
-// Serve the website's static assets (CSS, JS, images) when the URL starts with /website/
-app.use('/website', express.static(WEBSITE_BUILD_PATH));
+// Only serve website if the dist folder exists
+if (fs.existsSync(WEBSITE_BUILD_PATH)) {
+  console.log('✅ Website build found at:', WEBSITE_BUILD_PATH);
+  
+  // Serve the website's static assets (CSS, JS, images) when the URL starts with /website/
+  app.use('/website', express.static(WEBSITE_BUILD_PATH));
 
-// Catch-all for the Website application's client-side routing (e.g., /website/about)
-// This serves the website's index.html for all routes beginning with /website/
-app.get('/website/*', (req, res) => {
-  res.sendFile(path.join(WEBSITE_BUILD_PATH, 'index.html'));
-});
+  // Catch-all for the Website application's client-side routing (e.g., /website/about)
+  // This serves the website's index.html for all routes beginning with /website/
+  app.get('/website/*', (req, res) => {
+    const websiteIndexPath = path.join(WEBSITE_BUILD_PATH, 'index.html');
+    if (fs.existsSync(websiteIndexPath)) {
+      res.sendFile(websiteIndexPath);
+    } else {
+      res.status(404).json({ 
+        message: 'Website not built yet', 
+        path: websiteIndexPath 
+      });
+    }
+  });
+} else {
+  console.log('⚠️  Website build not found at:', WEBSITE_BUILD_PATH);
+}
 
 // --- 2. ROOT APPLICATION ROUTING (CHECKED LAST) ---
 
-// Define the path to the root app's built files (autoParts/dist)
-const ROOT_BUILD_PATH = path.join(process.cwd(), 'dist');
+// Define the path to the root app's built files
+const ROOT_BUILD_PATH = path.join(__dirname, 'dist');
 
 // Serve the root app's static assets from the root path /
-// NOTE: You already use app.use(express.static(path.join(__dirname, "uploads"))) earlier in your file, 
-// so this only handles the 'dist' folder.
 app.use(express.static(ROOT_BUILD_PATH));
 
 // Catch-all for the Root application's client-side routing (e.g., /dashboard)
 // This MUST be the very last route handler. It serves the root app's index.html
 // for everything else that hasn't been matched by /api, /uploads, or /website/*.
 app.get('*', (req, res) => {
-  res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
+  res.sendFile(path.join(ROOT_BUILD_PATH, 'index.html'));
 });
 
 // --- 3. START SERVER (Should only be done once) ---

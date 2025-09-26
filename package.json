@@ -3,15 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "server": "node server.js",
-    "website": "cd website && vite",
-    "start": "node server.js"
-  },
+ "scripts": {
+  "dev": "vite",
+  "build": "vite build && cd website && npm install && npm run build",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "server": "node server.js",
+  "website": "cd website && vite",
+  "start": "node server.js"
+}
+,
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",

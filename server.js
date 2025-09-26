@@ -2664,14 +2664,49 @@ app.delete('/api/orders/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+// ... (All your API routes must be defined before this block)
 
-app.use(express.static(path.join(__dirname, "dist")));
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+// 1. Serve static files for the website application from the /website path
+const WEBSITE_DIST_PATH = path.join(__dirname, 'website', 'dist');
+app.use('/website', express.static(WEBSITE_DIST_PATH));
+
+// 2. Catch-all for the website application
+// This ensures that deep links like https://nassarap.fly.dev/website/about still load the website's index.html
+app.get('/website/*', (req, res) => {
+  if (req.accepts('html')) {
+    res.sendFile(path.join(WEBSITE_DIST_PATH, 'index.html'));
+  } else {
+    // If it's a request for a missing asset (like a CSS file), respond with 404
+    res.status(404).end();
+  }
 });
 
-const PORT = process.env.PORT || 8080;
+// 3. Serve static files for the root React application
+const ROOT_DIST_PATH = path.join(__dirname, 'dist');
+app.use(express.static(ROOT_DIST_PATH));
+
+// 4. Catch-all for the root application (MUST be the final route)
+// This handles deep links for the main app (e.g., /invoices or /dashboard)
+app.get('*', (req, res) => {
+  // Exclude API calls or other specific routes that should 404 naturally if not found
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+    // Let express handle the 404 for unhandled API routes
+    return res.status(404).json({ message: 'API endpoint not found' });
+  }
+
+  // Serve the main app's index.html
+  res.sendFile(path.join(ROOT_DIST_PATH, 'index.html'), (err) => {
+    if (err) {
+      console.error('Error sending index.html:', err);
+      // Fallback for file not found
+      res.status(500).send("Server Error: Main application entry file not found.");
+    }
+  });
+});
+
+
+// 5. Start the server (Use process.env.PORT for Fly.io)
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
 });
-

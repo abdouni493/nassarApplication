@@ -24,7 +24,7 @@ interface CategoryProduct {
   image: string;
 }
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = " ";
 
 const ProductsSection: React.FC<ProductsSectionProps> = ({ category, onBack }) => {
   const { t, language } = useLanguage();

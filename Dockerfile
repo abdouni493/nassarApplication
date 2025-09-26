@@ -12,14 +12,15 @@ RUN npm install
 # Copy all files
 COPY . .
 
-# Build Vite frontend
+# Build both the main app AND the website
 RUN npm run build
+RUN cd website && npm install && npm run build
 
 # Remove dev dependencies for smaller image
 RUN npm prune --production
 
 # Make sure folders exist
-RUN mkdir -p /app/uploads /data
+RUN mkdir -p /app/uploads /data /app/website/dist
 
 # Set SQLite DB path
 ENV DATABASE_PATH=/data/database.sqlite

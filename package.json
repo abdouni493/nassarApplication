@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-"scripts": {
+ "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
+    "website:build": "cd website && npm run build",
+    "build:all": "npm run build && npm run website:build",
     "server": "node server.js",
     "website": "cd website && vite",
-    "start": "node server.js"
+    "start": "npm-run-all --parallel server dev website",
+    "start:prod": "node server.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

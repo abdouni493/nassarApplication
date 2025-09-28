@@ -1,20 +1,19 @@
-# fly.toml app configuration file generated for nassarapplication on 2025-09-24T17:25:27+02:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.toml app configuration file for nassarapplication
+# See https://fly.io/docs/reference/configuration/ for details
 
-app = 'nassarapplication'
+app = "nassarapplication"
+primary_region = "cdg"   # Paris, closest stable region to Algeria
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = "Dockerfile"
 
 [[mounts]]
-  source = 'data'
-  destination = '/data'
+  source = "data"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 1

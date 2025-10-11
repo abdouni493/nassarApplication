@@ -17,7 +17,8 @@ import {
   Mail,
   MapPin,
   UserCheck,
-  Filter
+  Filter,
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,7 @@ interface Employee {
   id: number;
   name: string;
   phone: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'website_manager';
   salary: number;
   hireDate: string;
   status: 'active' | 'inactive';
@@ -158,8 +159,27 @@ export default function Employees() {
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'gradient-primary text-primary-foreground';
+      case 'website_manager': return 'gradient-info text-info-foreground';
       case 'employee': return 'bg-secondary text-secondary-foreground';
       default: return 'bg-secondary text-secondary-foreground';
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return <Shield className="h-3 w-3" />;
+      case 'website_manager': return <Globe className="h-3 w-3" />;
+      case 'employee': return <User className="h-3 w-3" />;
+      default: return <User className="h-3 w-3" />;
+    }
+  };
+
+  const getRoleTranslation = (role: string) => {
+    switch (role) {
+      case 'admin': return language === 'ar' ? 'مسؤول' : 'Administrateur';
+      case 'website_manager': return language === 'ar' ? 'مدير الموقع' : 'Gestionnaire du Site';
+      case 'employee': return language === 'ar' ? 'موظف' : 'Employé';
+      default: return role;
     }
   };
 
@@ -308,8 +328,7 @@ export default function Employees() {
             <Clock className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            {/* This data should be dynamic */}
-            <div className="text-2xl font-bold">2</div> 
+            <div className="text-2xl font-bold">2</div>
             <p className="text-xs">{language === 'ar' ? 'للإنجاز' : 'À traiter'}</p>
           </CardContent>
         </Card>
@@ -336,6 +355,7 @@ export default function Employees() {
               <SelectContent>
                 <SelectItem value="all">{language === 'ar' ? 'جميع الأدوار' : 'Tous les rôles'}</SelectItem>
                 <SelectItem value="admin">{language === 'ar' ? 'مسؤول' : 'Administrateur'}</SelectItem>
+                <SelectItem value="website_manager">{language === 'ar' ? 'مدير الموقع' : 'Gestionnaire du Site'}</SelectItem>
                 <SelectItem value="employee">{language === 'ar' ? 'موظف' : 'Employé'}</SelectItem>
               </SelectContent>
             </Select>
@@ -381,7 +401,10 @@ export default function Employees() {
                     </TableCell>
                     <TableCell>
                       <Badge className={getRoleBadgeColor(employee.role)}>
-                        {employee.role === 'admin' ? (language === 'ar' ? 'مسؤول' : 'Administrateur') : (language === 'ar' ? 'موظف' : 'Employé')}
+                        <span className="flex items-center gap-1">
+                          {getRoleIcon(employee.role)}
+                          {getRoleTranslation(employee.role)}
+                        </span>
                       </Badge>
                     </TableCell>
                     <TableCell className="font-bold text-success">
@@ -554,6 +577,7 @@ export default function Employees() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">{language === 'ar' ? 'مسؤول' : 'Administrateur'}</SelectItem>
+                        <SelectItem value="website_manager">{language === 'ar' ? 'مدير الموقع' : 'Gestionnaire du Site'}</SelectItem>
                         <SelectItem value="employee">{language === 'ar' ? 'موظف' : 'Employé'}</SelectItem>
                       </SelectContent>
                     </Select>

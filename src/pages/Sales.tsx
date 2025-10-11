@@ -51,14 +51,15 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 // --- Type Definitions ---
 interface Invoice {
- id: number;
+  id: number;
   clientId: string | null;
   clientName?: string | null;
+  clientPhone?: string | null; // ADD THIS
   total: number;
   amount_paid: number;
   created_at: string;
   createdBy: string;
-  createdByType?: 'admin' | 'employee'; // ⬅️ add this
+  createdByType?: 'admin' | 'employee';
 }
 
 interface SalesStats {
@@ -132,11 +133,10 @@ function EditInvoiceDialog({ isOpen, onClose, invoice, onUpdate }: {
 
     try {
       const response = await fetch(` /api/invoices/${invoice.id}/pay`, {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ amount_paid: additionalPayment }),
-});
-
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount_paid: additionalPayment }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to update invoice');
@@ -164,7 +164,7 @@ function EditInvoiceDialog({ isOpen, onClose, invoice, onUpdate }: {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{language === 'ar' ? `تعديل الفاتورة رقم ${invoice?.id}` : `Modifier la facture #${invoice?.id}`}</DialogTitle>
           <DialogDescription>
@@ -173,6 +173,23 @@ function EditInvoiceDialog({ isOpen, onClose, invoice, onUpdate }: {
         </DialogHeader>
         {invoice && (
           <div className="space-y-4">
+            {/* CLIENT INFORMATION SECTION - ADDED */}
+            <div className="bg-muted/20 rounded-lg p-4 space-y-2">
+              <h3 className="font-semibold text-sm">{language === 'ar' ? 'معلومات العميل' : 'Informations Client'}</h3>
+              <div className="grid grid-cols-1 gap-2">
+                <div>
+                  <Label className="text-xs">{language === 'ar' ? 'الاسم' : 'Nom'}</Label>
+                  <p className="text-sm font-medium">{invoice.clientName || (language === 'ar' ? 'العميل عابر' : 'Client de passage')}</p>
+                </div>
+                {invoice.clientPhone && (
+                  <div>
+                    <Label className="text-xs">{language === 'ar' ? 'الهاتف' : 'Téléphone'}</Label>
+                    <p className="text-sm font-medium dir-ltr text-right">{invoice.clientPhone}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{language === 'ar' ? 'الإجمالي' : 'Total'}</Label>
@@ -197,8 +214,8 @@ function EditInvoiceDialog({ isOpen, onClose, invoice, onUpdate }: {
             </div>
 
             <div className="flex justify-between items-center border-t pt-2">
-                <Label>{language === 'ar' ? 'إجمالي المدفوع بعد الإضافة' : 'Total payé après ajout'}:</Label>
-                <p className="text-lg font-bold text-blue-600">{formatCurrencyLocal(currentTotalPaidAfterAddition, language)}</p>
+              <Label>{language === 'ar' ? 'إجمالي المدفوع بعد الإضافة' : 'Total payé après ajout'}:</Label>
+              <p className="text-lg font-bold text-blue-600">{formatCurrencyLocal(currentTotalPaidAfterAddition, language)}</p>
             </div>
 
             <div className="text-center text-xl font-bold">
@@ -471,16 +488,18 @@ if (isEmployee && currentUser?.id) {
   const invoicesData = await invoicesResponse.json();
 
   // ✅ Normalize backend snake_case to camelCase
-  const normalized: Invoice[] = invoicesData.map((inv: any) => ({
+  // In the fetchSalesData function, update the normalization:
+const normalized: Invoice[] = invoicesData.map((inv: any) => ({
   id: inv.id,
   clientId: inv.client_id ?? null,
   clientName: inv.client_name ?? null,
+  clientPhone: inv.client_phone ?? null, // ADD THIS
   total: inv.total,
   amount_paid: inv.amount_paid,
   created_at: inv.created_at,
-  createdByType: inv.created_by_type, // ⬅️ come from API
+  createdByType: inv.created_by_type,
   createdBy:
-    inv.created_by_display // unified alias (step 6)
+    inv.created_by_display
     || inv.created_by_username
     || inv.created_by_email
     || inv.admin_username
@@ -489,8 +508,6 @@ if (isEmployee && currentUser?.id) {
     || inv.employee_email
     || 'N/A',
 }));
-
-
 
   setSalesInvoices(normalized);
   const paidCount = normalized.filter(inv => (inv.total - inv.amount_paid) <= 0).length;

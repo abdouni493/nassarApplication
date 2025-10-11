@@ -329,14 +329,14 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
       )
     `);
 
-    // Invoices table (for purchase orders and sales)
-    CREATE TABLE IF NOT EXISTS invoices (
+    await db.exec(`
+  CREATE TABLE IF NOT EXISTS invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL, -- 'purchase' or 'sale'
-    supplierId INTEGER, -- For purchase invoices
-    clientId INTEGER, 
+    type TEXT NOT NULL,
+    supplierId INTEGER,
+    clientId INTEGER,
     client_name TEXT,
-    client_phone TEXT, -- ADD THIS LINE
+    client_phone TEXT,
     total REAL NOT NULL,
     amount_paid REAL DEFAULT 0,
     status TEXT DEFAULT 'pending',
@@ -347,6 +347,7 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
     FOREIGN KEY(createdBy) REFERENCES users(id)
   )
 `);
+
 
 // Ensure the column exists for existing databases
 await ensureColumn('invoices', 'client_phone', 'TEXT', null);

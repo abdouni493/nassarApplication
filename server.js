@@ -276,23 +276,23 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
     }
 
     // Employees table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS employees (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT,
-        role TEXT NOT NULL,
-        salary REAL DEFAULT 0,
-        hireDate TEXT NOT NULL,
-        status TEXT DEFAULT 'active',
-        address TEXT,
-        username TEXT UNIQUE,
-        password TEXT,
-        hasAccount BOOLEAN DEFAULT FALSE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+   await db.exec(`
+  CREATE TABLE IF NOT EXISTS employees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT,
+    role TEXT NOT NULL,
+    salary REAL DEFAULT 0,
+    hireDate TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    address TEXT,
+    username TEXT UNIQUE,
+    password TEXT,
+    hasAccount BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
     // Employee Payments table
     await db.exec(`
@@ -330,23 +330,26 @@ await ensureColumn('special_offer_products', 'quality', 'INTEGER DEFAULT 5');
     `);
 
     // Invoices table (for purchase orders and sales)
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS invoices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type TEXT NOT NULL, -- 'purchase' or 'sale'
-        supplierId INTEGER, -- For purchase invoices
-        clientId INTEGER, 
-        client_name TEXT,
-        total REAL NOT NULL,
-        amount_paid REAL DEFAULT 0,
-        status TEXT DEFAULT 'pending', -- New column: 'paid', 'pending', 'partial'
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        createdBy INTEGER,
-        FOREIGN KEY(supplierId) REFERENCES suppliers(id),
-        FOREIGN KEY(clientId) REFERENCES customers(id),
-        FOREIGN KEY(createdBy) REFERENCES users(id)
-      )
-    `);
+    CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL, -- 'purchase' or 'sale'
+    supplierId INTEGER, -- For purchase invoices
+    clientId INTEGER, 
+    client_name TEXT,
+    client_phone TEXT, -- ADD THIS LINE
+    total REAL NOT NULL,
+    amount_paid REAL DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    createdBy INTEGER,
+    FOREIGN KEY(supplierId) REFERENCES suppliers(id),
+    FOREIGN KEY(clientId) REFERENCES customers(id),
+    FOREIGN KEY(createdBy) REFERENCES users(id)
+  )
+`);
+
+// Ensure the column exists for existing databases
+await ensureColumn('invoices', 'client_phone', 'TEXT', null);
     await ensureColumn('invoices', 'client_name', 'TEXT');
     await ensureColumn("invoices", "createdByType", "TEXT", "admin"); 
 
@@ -1118,35 +1121,41 @@ app.put('/api/workers/:id/password', async (req, res) => {
 });
 
 
-
-
 app.post('/api/invoices', async (req, res) => {
-  const { type, supplierId, clientId, client_name, total, amount_paid = 0, items } = req.body;
+  // Add client_phone to destructuring
+  const { type, supplierId, clientId, client_name, client_phone, total, amount_paid = 0, items } = req.body;
 
   if (!type || !total || !items || items.length === 0) {
     return res.status(400).json({ message: 'Missing required fields or items' });
   }
 
+  let transactionActive = false;
+
   try {
-    await db.run('BEGIN TRANSACTION');
+    // Check if we're already in a transaction
+    const inTransaction = await db.get('SELECT * FROM sqlite_master LIMIT 1'); // Simple query to check connection state
+    
+    if (!inTransaction) {
+      await db.run('BEGIN TRANSACTION');
+      transactionActive = true;
+    }
 
+    // Update the INSERT query to include client_phone
     const result = await db.run(
-  `INSERT INTO invoices (type, clientId, client_name, supplierId, total, amount_paid, createdBy, createdByType) 
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  [
-    type,
-    clientId,
-    client_name,
-    supplierId,
-    total,
-    amount_paid,
-   req.body.createdBy,
-req.body.createdByType
-
-  ]
-);
-
-
+      `INSERT INTO invoices (type, clientId, client_name, client_phone, supplierId, total, amount_paid, createdBy, createdByType) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        type,
+        clientId,
+        client_name,
+        client_phone,
+        supplierId,
+        total,
+        amount_paid,
+        req.body.createdBy,
+        req.body.createdByType
+      ]
+    );
 
     const invoiceId = result.lastID;
 
@@ -1259,12 +1268,22 @@ req.body.createdByType
       await db.run(`UPDATE invoices SET clientId = ? WHERE id = ?`, [cust.lastID, invoiceId]);
     }
 
-    await db.run('COMMIT');
+    // Only commit if we started the transaction
+    if (transactionActive) {
+      await db.run('COMMIT');
+    }
 
     const newInvoice = await db.get('SELECT * FROM invoices WHERE id = ?', invoiceId);
     res.status(201).json(newInvoice);
   } catch (err) {
-    await db.run('ROLLBACK');
+    // Only rollback if we started the transaction
+    if (transactionActive) {
+      try {
+        await db.run('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rollback error:', rollbackError);
+      }
+    }
     console.error('❌ Add invoice error:', err);
     res.status(500).json({ message: 'Server error' });
   }

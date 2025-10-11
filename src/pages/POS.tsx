@@ -79,9 +79,11 @@ interface SaleInvoiceItem {
 interface SaleInvoice {
   id: number;
   type: 'sale';
+  client_name: string;
+  client_phone: string;
   clientId: string;
   total: number;
-  amount_paid: number; // New field for paid amount
+  amount_paid: number;
   created_at: string;
   items: SaleInvoiceItem[];
 }
@@ -100,12 +102,14 @@ export default function POS() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [printConfirmationDialog, setPrintConfirmationDialog] = useState(false);
   const [lastSaleInvoice, setLastSaleInvoice] = useState<SaleInvoice | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,7 +120,6 @@ export default function POS() {
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
-        // Initially, filter based on the current search query
         setFilteredProducts(data.filter((p: Product) => 
           p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           p.barcode?.includes(searchQuery)
@@ -142,12 +145,12 @@ export default function POS() {
   useEffect(() => {
     const handler = setTimeout(() => {
       // Barcode scanning logic
-      const isBarcode = /^\d+$/.test(searchQuery); // A simple check for a barcode (digits only)
-      if (isBarcode && searchQuery.length >= 8) { // Assuming barcodes are at least 8 digits
+      const isBarcode = /^\d+$/.test(searchQuery);
+      if (isBarcode && searchQuery.length >= 8) {
         const scannedProduct = products.find(p => p.barcode === searchQuery);
         if (scannedProduct) {
           addToCart(scannedProduct);
-          setSearchQuery(''); // Clear the input after successful scan
+          setSearchQuery('');
           return;
         } else {
           toast({
@@ -176,7 +179,6 @@ export default function POS() {
   const total = subtotal - totalDiscount;
   const remainingDebt = total - receivedAmount;
   const change = receivedAmount - total;
-
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
@@ -260,41 +262,44 @@ export default function POS() {
   const clearCart = () => {
     setCart([]);
     setClientName('');
-    setReceivedAmount(0); // Reset received amount
+    setClientPhone('');
+    setReceivedAmount(0);
+    setSearchQuery('');
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
   };
 
-
   const completeSale = async () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     try {
-    // ✅ get the logged-in user
-const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-const invoiceData = {
-  type: 'sale',
-  client_name: clientName.trim() || null,
-  clientId: null,
-  total,
-  amount_paid: receivedAmount,
-createdBy: user.id || null,
-createdByType: user.role === "employee" ? "employee" : "admin",
-  items: cart.map(({ product, quantity, total }) => ({
-    id: product.id,
-    name: product.name,
-    product_id: product.id,
-    product_name: product.name,
-    barcode: product.barcode,
-    buying_price: product.buying_price ?? 0,
-    margin_percent: product.margin_percent ?? 0,
-    selling_price: product.selling_price ?? 0,
-    quantity,
-    min_quantity: product.min_quantity ?? 0,
-    total
-  }))
-};
-
-
-
-
+      const invoiceData = {
+        type: 'sale',
+        client_name: clientName.trim() || null,
+        client_phone: clientPhone.trim() || null,
+        clientId: null,
+        total,
+        amount_paid: receivedAmount,
+        createdBy: user.id || null,
+        createdByType: user.role === "employee" ? "employee" : "admin",
+        items: cart.map(({ product, quantity, total }) => ({
+          id: product.id,
+          name: product.name,
+          product_id: product.id,
+          product_name: product.name,
+          barcode: product.barcode,
+          buying_price: product.buying_price ?? 0,
+          margin_percent: product.margin_percent ?? 0,
+          selling_price: product.selling_price ?? 0,
+          quantity,
+          min_quantity: product.min_quantity ?? 0,
+          total
+        }))
+      };
 
       const response = await fetch(' /api/invoices', {
         method: 'POST',
@@ -306,25 +311,29 @@ createdByType: user.role === "employee" ? "employee" : "admin",
         throw new Error('Failed to create sale invoice');
       }
 
-      const createdInvoice = await response.json();
+      const newInvoice = await response.json();
       
-      const invoiceResponse = await fetch(` /api/invoices/${createdInvoice.id}`);
-      if (!invoiceResponse.ok) {
-        throw new Error('Failed to fetch created invoice details');
-      }
-      const fetchedInvoice: SaleInvoice = await invoiceResponse.json();
-
-      setLastSaleInvoice(fetchedInvoice);
+      // ✅ SUCCESS: Show success message and reset everything
+      setLastSaleInvoice(newInvoice);
       
       toast({
-        title: language === 'ar' ? 'تمت الفاتورة' : 'Vente Complétée',
-        description: language === 'ar' ? 'تم إنشاء فاتورة البيع بنجاح.' : 'Facture de vente créée avec succès.',
+        title: language === 'ar' ? 'نجح' : 'Succès',
+        description: language === 'ar' 
+          ? `تم إنشاء فاتورة البيع #${newInvoice.id} بنجاح!` 
+          : `Facture de vente #${newInvoice.id} créée avec succès!`,
+        variant: 'default',
       });
-      
-      clearCart();
+
+      // Close payment dialog and clear cart
       setPaymentDialog(false);
-      fetchProducts();
+      clearCart();
+      
+      // Ask if user wants to print
       setPrintConfirmationDialog(true);
+      
+      // Refresh products to update stock
+      fetchProducts();
+
     } catch (error) {
       console.error('Error completing sale:', error);
       toast({
@@ -332,6 +341,8 @@ createdByType: user.role === "employee" ? "employee" : "admin",
         description: language === 'ar' ? 'فشل في إتمام عملية البيع.' : 'Échec de la finalisation de la vente.',
         variant: 'destructive'
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -351,7 +362,11 @@ createdByType: user.role === "employee" ? "employee" : "admin",
       const invoiceDate = new Date(lastSaleInvoice.created_at).toLocaleDateString(language === 'ar' ? 'ar-DZ' : 'fr-DZ', {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
       });
-      const clientDisplayedName = lastSaleInvoice.clientId || (language === 'ar' ? 'العميل عابر' : 'Client de passage');
+      
+      const clientDisplayedName = lastSaleInvoice.client_name || 
+                                 lastSaleInvoice.clientId || 
+                                 (language === 'ar' ? 'العميل عابر' : 'Client de passage');
+      
       const debtAmount = lastSaleInvoice.total - lastSaleInvoice.amount_paid;
       const changeAmount = lastSaleInvoice.amount_paid - lastSaleInvoice.total;
 
@@ -412,6 +427,13 @@ createdByType: user.role === "employee" ? "employee" : "admin",
                     <p class="font-medium">${clientDisplayedName}</p>
                 </div>
                 
+                ${lastSaleInvoice.client_phone ? `
+                  <div class="detail-item">
+                    <label>${language === 'ar' ? 'هاتف العميل' : 'Téléphone du Client'}:</label>
+                    <p class="font-medium">${lastSaleInvoice.client_phone}</p>
+                  </div>
+                ` : ''}
+                
                 <table class="w-full">
                   <thead>
                     <tr>
@@ -468,7 +490,7 @@ createdByType: user.role === "employee" ? "employee" : "admin",
     }
   };
 
-  // Auto-focus on search input, but only if no other input is active
+  // Auto-focus on search input
   useEffect(() => {
     const handleFocus = () => {
       const activeElement = document.activeElement;
@@ -482,12 +504,8 @@ createdByType: user.role === "employee" ? "employee" : "admin",
       }
     };
 
-    // Set initial focus
     handleFocus();
-
-    // Re-check focus periodically, but less aggressively
-    const interval = setInterval(handleFocus, 500); 
-
+    const interval = setInterval(handleFocus, 500);
     return () => clearInterval(interval);
   }, []);
 
@@ -503,7 +521,6 @@ createdByType: user.role === "employee" ? "employee" : "admin",
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Search Input (combines name and barcode search) */}
             <div className="relative">
               <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
               <Input
@@ -573,15 +590,27 @@ createdByType: user.role === "employee" ? "employee" : "admin",
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Client Name Input */}
-            <div>
-              <Label>{language === 'ar' ? 'اسم العميل' : 'Nom du Client'}</Label>
-              <Input
-                type="text"
-                placeholder={language === 'ar' ? 'اكتب اسم العميل (اختياري)' : 'Taper le nom du client (optionnel)'}
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
+            {/* Client Information Input */}
+            <div className="space-y-3">
+              <div>
+                <Label>{language === 'ar' ? 'اسم العميل' : 'Nom du Client'}</Label>
+                <Input
+                  type="text"
+                  placeholder={language === 'ar' ? 'اكتب اسم العميل (اختياري)' : 'Taper le nom du client (optionnel)'}
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label>{language === 'ar' ? 'رقم هاتف العميل' : 'Téléphone du Client'}</Label>
+                <Input
+                  type="tel"
+                  placeholder={language === 'ar' ? 'رقم الهاتف (اختياري)' : 'Numéro de téléphone (optionnel)'}
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                />
+              </div>
             </div>
 
             {/* Cart Items */}
@@ -676,7 +705,7 @@ createdByType: user.role === "employee" ? "employee" : "admin",
               </div>
 
               <Button 
-                onClick={() => setPaymentDialog(true)} // Directly open payment dialog
+                onClick={() => setPaymentDialog(true)}
                 className="w-full bg-white text-primary hover:bg-white/90"
                 size="lg"
               >
@@ -688,9 +717,9 @@ createdByType: user.role === "employee" ? "employee" : "admin",
         )}
       </div>
 
-      {/* Payment Dialog (Simplified for Cash only) */}
+      {/* Payment Dialog */}
       <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
-        <DialogContent className="max-w-md"> {/* Reduced max-width */}
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{language === 'ar' ? 'إتمام الدفع نقدا' : 'Finaliser le Paiement en Espèces'}</DialogTitle>
             <DialogDescription>
@@ -745,11 +774,20 @@ createdByType: user.role === "employee" ? "employee" : "admin",
             </Button>
             <Button 
               onClick={completeSale}
-              disabled={receivedAmount < 0}
+              disabled={receivedAmount < 0 || isProcessing}
               className="gradient-primary text-primary-foreground"
             >
-              <Check className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4`} />
-              {language === 'ar' ? 'إتمام البيع' : 'Finaliser'}
+              {isProcessing ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {language === 'ar' ? 'جاري المعالجة...' : 'Traitement...'}
+                </div>
+              ) : (
+                <>
+                  <Check className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4`} />
+                  {language === 'ar' ? 'إتمام البيع' : 'Finaliser'}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

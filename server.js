@@ -10,7 +10,19 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-const upload = multer({ dest: "uploads/" });
+// persistent storage on Fly volume
+const DATA_DIR = process.env.DATA_DIR || '/data';
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, 'tmp'), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, 'categories'), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, 'category-products'), { recursive: true });
+fs.mkdirSync(path.join(UPLOADS_DIR, 'special-offers'), { recursive: true });
+fs.mkdirSync(path.join(DATA_DIR, 'backups'), { recursive: true });
+
+// multer writes to tmp inside the persistent volume
+const upload = multer({ dest: path.join(UPLOADS_DIR, 'tmp') });
 app.use(cors({
   origin: ["http://localhost:8080", "http://localhost:8081"],
   credentials: true
@@ -411,7 +423,7 @@ await ensureColumn('invoices', 'client_phone', 'TEXT', null);
 // Init database and start the server
 (async () => {
   try {
-   const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
+   const dbPath = process.env.DATABASE_PATH || path.join(DATA_DIR, 'database.sqlite');
 
     
     db = await open({
@@ -429,7 +441,7 @@ await ensureColumn('invoices', 'client_phone', 'TEXT', null);
 })();
 
 // allow frontend to load uploaded images
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 
 // Login (Admin by email, Worker by username)
@@ -1600,7 +1612,7 @@ app.get('/api/users/:id', async (req, res) => {
 }); 
 
 // ensure categories upload dir exists
-const categoriesUploadDir = path.join(process.cwd(), 'uploads', 'categories');
+const categoriesUploadDir = path.join(UPLOADS_DIR, 'categories');
 if (!fs.existsSync(categoriesUploadDir)) fs.mkdirSync(categoriesUploadDir, { recursive: true });
 
 /**
@@ -1626,7 +1638,7 @@ app.get('/api/categories', async (req, res) => {
 });
 
 // Allow frontend to load uploaded images
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 /**
  * GET /api/categories/:id
  * returns a single category and its products
@@ -1794,7 +1806,7 @@ const qualityNum = parseInt(quality) || 5;
     if (req.file) {
       const ext = path.extname(req.file.originalname) || '';
       const destName = `${Date.now()}${ext}`;
-      const dest = path.join(process.cwd(), 'uploads', 'category-products', destName);
+      const dest = path.join(UPLOADS_DIR, 'category-products', destName);
       
       // Ensure directory exists
       if (!fs.existsSync(path.dirname(dest))) {
@@ -1865,13 +1877,13 @@ app.put('/api/category-products/:id', upload.single('image'), async (req, res) =
       // Delete old image if exists
       if (existing.image) {
         try {
-          fs.unlinkSync(path.join(process.cwd(), existing.image.replace(/^\//, '')));
+          try {   fs.unlinkSync(path.join(DATA_DIR, existing.image.replace(/^\//, ''))); } catch(e) { /* ignore */ }
         } catch (e) { /* ignore */ }
       }
       
       const ext = path.extname(req.file.originalname) || '';
       const destName = `${Date.now()}${ext}`;
-      const dest = path.join(process.cwd(), 'uploads', 'category-products', destName);
+      const dest = path.join(UPLOADS_DIR, 'category-products', destName);
       
       // Ensure directory exists
       if (!fs.existsSync(path.dirname(dest))) {
@@ -2025,7 +2037,7 @@ app.put('/api/special-offers/:id', async (req, res) => {
 });
 
 // Ensure special offers upload directory exists
-const specialOffersUploadDir = path.join(process.cwd(), 'uploads', 'special-offers');
+const specialOffersUploadDir = path.join(UPLOADS_DIR, 'special-offers');
 if (!fs.existsSync(specialOffersUploadDir)) {
   fs.mkdirSync(specialOffersUploadDir, { recursive: true });
 }
@@ -2114,7 +2126,7 @@ app.post('/api/special-offers/:id/products', upload.single('image'), async (req,
     if (req.file) {
       const ext = path.extname(req.file.originalname) || '';
       const destName = `${Date.now()}${ext}`;
-      const dest = path.join(process.cwd(), 'uploads', 'special-offers', destName);
+      const dest = path.join(UPLOADS_DIR, 'special-offers', destName);
       
       // Ensure directory exists
       if (!fs.existsSync(path.dirname(dest))) {
@@ -2185,13 +2197,13 @@ app.put('/api/special-offers/:id/products/:productId', upload.single('image'), a
       // Delete old image if exists
       if (existing.image) {
         try {
-          fs.unlinkSync(path.join(process.cwd(), existing.image.replace(/^\//, '')));
+          try {   fs.unlinkSync(path.join(DATA_DIR, existing.image.replace(/^\//, ''))); } catch(e) { /* ignore */ }
         } catch (e) { /* ignore */ }
       }
       
       const ext = path.extname(req.file.originalname) || '';
       const destName = `${Date.now()}${ext}`;
-      const dest = path.join(process.cwd(), 'uploads', 'special-offers', destName);
+      const dest = path.join(UPLOADS_DIR, 'special-offers', destName);
       
       // Ensure directory exists
       if (!fs.existsSync(path.dirname(dest))) {
@@ -2316,13 +2328,13 @@ app.put('/api/special-offers/:id/products/:productId', upload.single('image'), a
       // Delete old image if exists
       if (existing.image) {
         try {
-          fs.unlinkSync(path.join(process.cwd(), existing.image.replace(/^\//, '')));
+          try {   fs.unlinkSync(path.join(DATA_DIR, existing.image.replace(/^\//, ''))); } catch(e) { /* ignore */ }
         } catch (e) { /* ignore */ }
       }
       
       const ext = path.extname(req.file.originalname) || '';
       const destName = `${Date.now()}${ext}`;
-      const dest = path.join(process.cwd(), 'uploads', 'special-offers', destName);
+      const dest = path.join(UPLOADS_DIR, 'special-offers', destName);
       
       // Ensure directory exists
       if (!fs.existsSync(path.dirname(dest))) {

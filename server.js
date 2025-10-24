@@ -431,6 +431,19 @@ await ensureColumn('invoices', 'client_phone', 'TEXT', null);
 // allow frontend to load uploaded images
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+const DATA_UPLOADS = path.join('/data','uploads');
+if (fs.existsSync('/data')) {
+  if (!fs.existsSync(DATA_UPLOADS)) fs.mkdirSync(DATA_UPLOADS, { recursive: true });
+  // remove local uploads dir if exists and not symlink
+  const localUploads = path.join(process.cwd(), 'uploads');
+  try {
+    if (fs.existsSync(localUploads) && !fs.lstatSync(localUploads).isSymbolicLink()) {
+      fs.rmSync(localUploads, { recursive: true, force: true });
+    }
+    if (!fs.existsSync(localUploads)) fs.symlinkSync(DATA_UPLOADS, localUploads, 'dir');
+  } catch (e) { console.error("symlink creation failed", e); }
+}
+
 
 // Login (Admin by email, Worker by username)
 app.post('/api/login', async (req, res) => {

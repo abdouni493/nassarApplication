@@ -428,8 +428,6 @@ await ensureColumn('invoices', 'client_phone', 'TEXT', null);
   }
 })();
 
-// allow frontend to load uploaded images
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 const DATA_UPLOADS = path.join('/data','uploads');
 if (fs.existsSync('/data')) {
@@ -443,6 +441,10 @@ if (fs.existsSync('/data')) {
     if (!fs.existsSync(localUploads)) fs.symlinkSync(DATA_UPLOADS, localUploads, 'dir');
   } catch (e) { console.error("symlink creation failed", e); }
 }
+
+// allow frontend to load uploaded images
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 
 
 // Login (Admin by email, Worker by username)

@@ -10,6 +10,18 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+const DATA_UPLOADS = path.join('/data','uploads');
+if (fs.existsSync('/data')) {
+  if (!fs.existsSync(DATA_UPLOADS)) fs.mkdirSync(DATA_UPLOADS, { recursive: true });
+  const localUploads = path.join(process.cwd(), 'uploads');
+  try {
+    if (fs.existsSync(localUploads) && !fs.lstatSync(localUploads).isSymbolicLink()) {
+      fs.rmSync(localUploads, { recursive: true, force: true });
+    }
+    if (!fs.existsSync(localUploads)) fs.symlinkSync(DATA_UPLOADS, localUploads, 'dir');
+  } catch (e) { console.error("symlink creation failed", e); }
+}
+
 const upload = multer({ dest: "uploads/" });
 app.use(cors({
   origin: ["http://localhost:8080", "http://localhost:8081"],
@@ -429,18 +441,6 @@ await ensureColumn('invoices', 'client_phone', 'TEXT', null);
 })();
 
 
-const DATA_UPLOADS = path.join('/data','uploads');
-if (fs.existsSync('/data')) {
-  if (!fs.existsSync(DATA_UPLOADS)) fs.mkdirSync(DATA_UPLOADS, { recursive: true });
-  // remove local uploads dir if exists and not symlink
-  const localUploads = path.join(process.cwd(), 'uploads');
-  try {
-    if (fs.existsSync(localUploads) && !fs.lstatSync(localUploads).isSymbolicLink()) {
-      fs.rmSync(localUploads, { recursive: true, force: true });
-    }
-    if (!fs.existsSync(localUploads)) fs.symlinkSync(DATA_UPLOADS, localUploads, 'dir');
-  } catch (e) { console.error("symlink creation failed", e); }
-}
 
 // allow frontend to load uploaded images
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

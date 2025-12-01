@@ -36,6 +36,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatCurrency } from '@/lib/utils';
+import { mockProducts } from '@/data/mockData';
 
 // --- Type Definitions ---
 interface Product {
@@ -46,6 +48,7 @@ interface Product {
   category: string;
   buying_price: number;
   selling_price: number;
+  wholesale_price?: number;
   margin_percent: number;
   initial_quantity: number;
   current_quantity: number; // Current stock
@@ -57,9 +60,10 @@ interface Product {
 
 interface CartItem {
   product: Product;
+  price: number;
   quantity: number;
-  discount: number; // Percentage discount
-  total: number; // Total after quantity and discount
+    discount: number; // Fixed discount in DZD per unit
+    total: number; // Total after quantity and discount
 }
 
 interface SaleInvoiceItem {
@@ -88,12 +92,9 @@ interface SaleInvoice {
   items: SaleInvoiceItem[];
 }
 
-// Function to format currency
-const formatCurrencyLocal = (amount: number, language: string) => 
-  new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', { 
-    style: 'currency', 
-    currency: 'DZD' 
-  }).format(amount);
+// Use shared formatter (shows e.g. "10 000 Da")
+const formatCurrencyLocal = (amount: number, language: string) =>
+  formatCurrency(amount, language === 'ar' ? 'ar-DZ' : 'fr-DZ');
 
 export default function POS() {
   const { toast } = useToast();
@@ -107,6 +108,8 @@ export default function POS() {
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail');
+  const [finalDiscount, setFinalDiscount] = useState(0);
   const [printConfirmationDialog, setPrintConfirmationDialog] = useState(false);
   const [lastSaleInvoice, setLastSaleInvoice] = useState<SaleInvoice | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -116,7 +119,7 @@ export default function POS() {
   // --- Fetch Products from API ---
   const fetchProducts = async () => {
     try {
-      const response = await fetch(' /api/products');
+      const response = await fetch('/api/products');
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -129,6 +132,73 @@ export default function POS() {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      // Dev fallback: load mockProducts mapped to Product shape so frontend works without backend
+      const viteDev = (import.meta as any).env?.DEV === true;
+      if (viteDev) {
+        // Prefer persisted dev products (from Inventory) so wholesale prices
+        // configured in the `Gestion du stock` page are respected.
+        const persisted = localStorage.getItem('dev_products');
+        if (persisted) {
+          try {
+            const parsed = JSON.parse(persisted) as any[];
+            const mapped = parsed.map((p, idx) => ({
+              id: p.id ?? idx + 1,
+              name: p.name ?? p.nameFr ?? `Produit ${idx + 1}`,
+              barcode: p.barcode || '',
+              brand: p.brand || '',
+              category: p.category || p.categoryId || '',
+              buying_price: Number(p.buying_price || 0),
+              selling_price: Number(p.selling_price || p.price || 0),
+              wholesale_price: p.wholesale_price !== undefined ? Number(p.wholesale_price) : (Number(p.price || p.selling_price || 0)),
+              margin_percent: Number(p.margin_percent || 0),
+              initial_quantity: Number(p.initial_quantity || 10),
+              current_quantity: Number(p.current_quantity || 10),
+              min_quantity: Number(p.min_quantity || 0),
+              supplier: p.supplier || '',
+              created_at: p.created_at || new Date().toISOString(),
+              updated_at: p.updated_at || new Date().toISOString(),
+            } as Product));
+            setProducts(mapped);
+            setFilteredProducts(mapped);
+            toast({
+              title: language === 'ar' ? 'ملاحظة' : 'Note',
+              description: language === 'ar' ? 'تم تحميل المنتجات من إعدادات المخزون المحلية' : 'Loaded products from local inventory (dev)',
+              variant: 'default'
+            });
+            return;
+          } catch (err) {
+            console.error('Failed parsing persisted dev_products', err);
+          }
+        }
+
+        // Fallback to bundled mockProducts if no persisted dev data
+        const mapped = mockProducts.map((mp, idx) => ({
+          id: idx + 1,
+          name: (mp as any).nameFr || (mp as any).name || `Produit ${idx + 1}`,
+          barcode: (mp as any).barcode || '',
+          brand: (mp as any).brand || '',
+          category: (mp as any).categoryId || (mp as any).category || '',
+          buying_price: (mp as any).buying_price || 0,
+          selling_price: (mp as any).price || 0,
+          wholesale_price: (mp as any).wholesale_price || (mp as any).price || 0,
+          margin_percent: (mp as any).margin_percent || 0,
+          initial_quantity: (mp as any).initial_quantity || 10,
+          current_quantity: (mp as any).current_quantity || 10,
+          min_quantity: (mp as any).min_quantity || 0,
+          supplier: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as Product));
+        setProducts(mapped);
+        setFilteredProducts(mapped);
+        toast({
+          title: language === 'ar' ? 'ملاحظة' : 'Note',
+          description: language === 'ar' ? 'جلب المنتجات من بيانات اختبار محلية' : 'Loaded products from local mock data (dev)',
+          variant: 'default'
+        });
+        return;
+      }
+
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحميل المنتجات.' : 'Failed to load products.',
@@ -173,10 +243,12 @@ export default function POS() {
     return () => clearTimeout(handler);
   }, [searchQuery, products, language]);
 
-  // Calculations
-  const subtotal = cart.reduce((sum, item) => sum + (item.product.selling_price * item.quantity), 0);
-  const totalDiscount = cart.reduce((sum, item) => sum + (item.product.selling_price * item.quantity * item.discount / 100), 0);
-  const total = subtotal - totalDiscount;
+  // Calculations (use CartItem.price which reflects selected price mode)
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // discount is fixed amount per unit
+  const totalDiscount = cart.reduce((sum, item) => sum + (item.discount * item.quantity), 0);
+  let total = subtotal - totalDiscount - (finalDiscount || 0);
+  if (total < 0) total = 0;
   const remainingDebt = total - receivedAmount;
   const change = receivedAmount - total;
 
@@ -192,6 +264,8 @@ export default function POS() {
       return;
     }
 
+    const priceToUse = priceMode === 'wholesale' ? (product.wholesale_price ?? product.selling_price) : product.selling_price;
+
     if (existingItem) {
       if (existingItem.quantity + 1 > product.current_quantity) {
         toast({
@@ -206,16 +280,17 @@ export default function POS() {
           ? { 
               ...item, 
               quantity: item.quantity + 1, 
-              total: (item.quantity + 1) * item.product.selling_price * (1 - item.discount / 100) 
+              total: Math.max((item.price - item.discount), 0) * (item.quantity + 1)
             }
           : item
       ));
     } else {
       setCart([...cart, { 
-        product, 
+        product,
+        price: priceToUse,
         quantity: 1, 
         discount: 0,
-        total: product.selling_price 
+        total: Math.max(priceToUse - 0, 0)
       }]);
     }
     
@@ -242,7 +317,7 @@ export default function POS() {
     
     setCart(cart.map(item => 
       item.product.id === productId 
-        ? { ...item, quantity: newQuantity, total: newQuantity * item.product.selling_price * (1 - item.discount / 100) }
+        ? { ...item, quantity: newQuantity, total: Math.max(item.price - item.discount, 0) * newQuantity }
         : item
     ));
   };
@@ -250,7 +325,7 @@ export default function POS() {
   const updateDiscount = (productId: number, discount: number) => {
     setCart(cart.map(item => 
       item.product.id === productId 
-        ? { ...item, discount, total: item.quantity * item.product.selling_price * (1 - discount / 100) }
+        ? { ...item, discount, total: Math.max(item.price - discount, 0) * item.quantity }
         : item
     ));
   };
@@ -286,7 +361,7 @@ export default function POS() {
         amount_paid: receivedAmount,
         createdBy: user.id || null,
         createdByType: user.role === "employee" ? "employee" : "admin",
-        items: cart.map(({ product, quantity, total }) => ({
+        items: cart.map(({ product, quantity, total, price, discount }) => ({
           id: product.id,
           name: product.name,
           product_id: product.id,
@@ -294,21 +369,33 @@ export default function POS() {
           barcode: product.barcode,
           buying_price: product.buying_price ?? 0,
           margin_percent: product.margin_percent ?? 0,
-          selling_price: product.selling_price ?? 0,
+          selling_price: price ?? product.selling_price ?? 0,
+          discount_per_unit: discount ?? 0,
           quantity,
           min_quantity: product.min_quantity ?? 0,
           total
         }))
+        ,
+        final_discount: finalDiscount || 0
       };
 
-      const response = await fetch(' /api/invoices', {
+      const response = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create sale invoice');
+        // Try to extract server error message/body for better debugging
+        let serverMsg = response.statusText;
+        try {
+          const json = await response.json();
+          serverMsg = json.message || JSON.stringify(json);
+        } catch (e) {
+          try { serverMsg = await response.text(); } catch (_) {}
+        }
+        console.error('Invoice creation failed', response.status, serverMsg);
+        throw new Error(serverMsg || `HTTP ${response.status}`);
       }
 
       const newInvoice = await response.json();
@@ -334,11 +421,12 @@ export default function POS() {
       // Refresh products to update stock
       fetchProducts();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing sale:', error);
+      const msg = (error && error.message) ? error.message : (language === 'ar' ? 'فشل في إتمام عملية البيع.' : 'Échec de la finalisation de la vente.');
       toast({
         title: language === 'ar' ? 'خطأ' : 'Erreur',
-        description: language === 'ar' ? 'فشل في إتمام عملية البيع.' : 'Échec de la finalisation de la vente.',
+        description: msg,
         variant: 'destructive'
       });
     } finally {
@@ -561,8 +649,13 @@ export default function POS() {
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.barcode}</p>
                     </div>
-                    <div className="mt-4 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-3">
-                      <span className="font-bold text-xl text-blue-600 dark:text-blue-400">{formatCurrencyLocal(product.selling_price, language)}</span>
+                    <div className="mt-4 flex flex-col gap-1 border-t border-gray-200 dark:border-gray-700 pt-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xl text-blue-600 dark:text-blue-400">{formatCurrencyLocal(product.selling_price, language)}</span>
+                        {product.wholesale_price !== undefined && (
+                          <span className="text-sm font-semibold text-green-600">{formatCurrencyLocal(product.wholesale_price, language)}</span>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -582,6 +675,22 @@ export default function POS() {
                 <ShoppingCart className="h-5 w-5" />
                 {language === 'ar' ? `السلة (${cart.length})` : `Panier (${cart.length})`}
               </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={priceMode === 'retail' ? 'default' : 'outline'}
+                  onClick={() => setPriceMode('retail')}
+                >
+                  {language === 'ar' ? 'سعر البيع' : 'Prix vente'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={priceMode === 'wholesale' ? 'default' : 'outline'}
+                  onClick={() => setPriceMode('wholesale')}
+                >
+                  {language === 'ar' ? 'سعر الجملة' : 'Prix gros'}
+                </Button>
+              </div>
               {cart.length > 0 && (
                 <Button variant="ghost" size="sm" onClick={clearCart}>
                   <Trash2 className="h-4 w-4" />
@@ -666,14 +775,13 @@ export default function POS() {
                     <div className="flex items-center gap-2">
                       <Input
                         type="number"
-                        placeholder={language === 'ar' ? 'الخصم %' : 'Remise %'}
+                        placeholder={language === 'ar' ? 'الخصم دج' : 'Remise (DZD)'}
                         value={item.discount}
                         onChange={(e) => updateDiscount(item.product.id, Number(e.target.value))}
                         className="h-6 text-xs"
                         min="0"
-                        max="100"
                       />
-                      <span className="text-xs text-muted-foreground">%</span>
+                      <span className="text-xs text-muted-foreground">DZD</span>
                     </div>
                   </div>
                 ))
@@ -697,6 +805,12 @@ export default function POS() {
                     <span>-{formatCurrencyLocal(totalDiscount, language)}</span>
                   </div>
                 )}
+                {finalDiscount > 0 && (
+                  <div className="flex justify-between text-yellow-200">
+                    <span>{language === 'ar' ? 'الخصم النهائي' : 'Remise finale'}:</span>
+                    <span>-{formatCurrencyLocal(finalDiscount, language)}</span>
+                  </div>
+                )}
                 <hr className="border-primary-foreground/20" />
                 <div className="flex justify-between text-lg font-bold">
                   <span>{language === 'ar' ? 'الإجمالي' : 'Total'}:</span>
@@ -712,6 +826,15 @@ export default function POS() {
                 <CreditCard className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4`} />
                 {language === 'ar' ? `دفع ${formatCurrencyLocal(total, language)}` : `Payer ${formatCurrencyLocal(total, language)}`}
               </Button>
+              <div className="mt-2">
+                <Label className="text-xs">{language === 'ar' ? 'الخصم النهائي (دج)' : 'Remise finale (DZD)'}</Label>
+                <Input
+                  type="number"
+                  value={finalDiscount}
+                  onChange={(e) => setFinalDiscount(Number(e.target.value) || 0)}
+                  className="mt-1 text-black"
+                />
+              </div>
             </CardContent>
           </Card>
         )}

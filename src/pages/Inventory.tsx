@@ -37,13 +37,13 @@ type Product = {
   category: string;
   buying_price: number;
   selling_price: number;
-  wholesale_price: number; // Add this line
+  wholesale_price: number;
   margin_percent: number;
   initial_quantity: number;
   current_quantity: number;
   min_quantity: number;
-  supplier: string;        // still stored in DB
-  supplierName?: string;   // new field from JOIN
+  supplier: string;
+  supplierName?: string;
 };
 
 const allCategories: Record<string, { fr: string; ar: string }> = {
@@ -138,7 +138,18 @@ export default function Inventory() {
       const r = await fetch(`${API}/${editForm.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          // Ensure all required fields are sent
+          buying_price: editForm.buying_price || 0,
+          selling_price: editForm.selling_price || 0,
+          wholesale_price: editForm.wholesale_price || 0, // Make sure this is included
+          margin_percent: editForm.margin_percent || 0,
+          initial_quantity: editForm.initial_quantity || 0,
+          current_quantity: editForm.current_quantity || 0,
+          min_quantity: editForm.min_quantity || 0,
+          supplier: editForm.supplier || "",
+        }),
       });
       if (!r.ok) throw new Error("Update failed");
       setEditOpen(false);
@@ -365,8 +376,9 @@ export default function Inventory() {
                       {currency(p.selling_price)}
                     </span>
 
+                    {/* Changed from "سعر البيع بالجملة" to "سعر الجملة" */}
                     <span className="text-muted-foreground">
-                      {language === 'ar' ? 'سعر البيع بالجملة:' : 'Prix vente de gros:'}
+                      {language === 'ar' ? 'سعر الجملة:' : 'Prix de gros:'}
                     </span>
                     <span className="font-semibold text-green-600">
                       {currency(p.wholesale_price ?? 0)}
@@ -481,7 +493,8 @@ export default function Inventory() {
                                 />
                               </div>
                               <div>
-                                <Label>{language === 'ar' ? 'سعر البيع بالجملة' : 'Prix vente de gros'}</Label>
+                                {/* Changed from "سعر البيع بالجملة" to "سعر الجملة" */}
+                                <Label>{language === 'ar' ? 'سعر الجملة' : 'Prix de gros'}</Label>
                                 <Input
                                   type="number"
                                   value={editForm.wholesale_price ?? 0}

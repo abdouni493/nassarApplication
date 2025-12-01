@@ -11,7 +11,9 @@ import {
   Check,
   X,
   Printer,
-  Car
+  Car,
+  Store,
+  ShoppingBag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,8 +38,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatCurrency } from '@/lib/utils';
-import { mockProducts } from '@/data/mockData';
 
 // --- Type Definitions ---
 interface Product {
@@ -48,7 +48,7 @@ interface Product {
   category: string;
   buying_price: number;
   selling_price: number;
-  wholesale_price?: number;
+  wholesale_price: number; // Added wholesale price
   margin_percent: number;
   initial_quantity: number;
   current_quantity: number; // Current stock
@@ -60,10 +60,9 @@ interface Product {
 
 interface CartItem {
   product: Product;
-  price: number;
   quantity: number;
-    discount: number; // Fixed discount in DZD per unit
-    total: number; // Total after quantity and discount
+  discount: number; // Fixed amount discount in DA
+  total: number; // Total after quantity and discount
 }
 
 interface SaleInvoiceItem {
@@ -92,9 +91,12 @@ interface SaleInvoice {
   items: SaleInvoiceItem[];
 }
 
-// Use shared formatter (shows e.g. "10 000 Da")
-const formatCurrencyLocal = (amount: number, language: string) =>
-  formatCurrency(amount, language === 'ar' ? 'ar-DZ' : 'fr-DZ');
+// Function to format currency
+const formatCurrencyLocal = (amount: number, language: string) => 
+  new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', { 
+    style: 'currency', 
+    currency: 'DZD' 
+  }).format(amount);
 
 export default function POS() {
   const { toast } = useToast();
@@ -108,18 +110,18 @@ export default function POS() {
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail');
-  const [finalDiscount, setFinalDiscount] = useState(0);
   const [printConfirmationDialog, setPrintConfirmationDialog] = useState(false);
   const [lastSaleInvoice, setLastSaleInvoice] = useState<SaleInvoice | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [priceMode, setPriceMode] = useState<'retail' | 'wholesale'>('retail'); // New state for price mode
+  const [globalDiscount, setGlobalDiscount] = useState(0); // New state for global discount in DA
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // --- Fetch Products from API ---
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products');
+      const response = await fetch(' /api/products');
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -132,73 +134,6 @@ export default function POS() {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      // Dev fallback: load mockProducts mapped to Product shape so frontend works without backend
-      const viteDev = (import.meta as any).env?.DEV === true;
-      if (viteDev) {
-        // Prefer persisted dev products (from Inventory) so wholesale prices
-        // configured in the `Gestion du stock` page are respected.
-        const persisted = localStorage.getItem('dev_products');
-        if (persisted) {
-          try {
-            const parsed = JSON.parse(persisted) as any[];
-            const mapped = parsed.map((p, idx) => ({
-              id: p.id ?? idx + 1,
-              name: p.name ?? p.nameFr ?? `Produit ${idx + 1}`,
-              barcode: p.barcode || '',
-              brand: p.brand || '',
-              category: p.category || p.categoryId || '',
-              buying_price: Number(p.buying_price || 0),
-              selling_price: Number(p.selling_price || p.price || 0),
-              wholesale_price: p.wholesale_price !== undefined ? Number(p.wholesale_price) : (Number(p.price || p.selling_price || 0)),
-              margin_percent: Number(p.margin_percent || 0),
-              initial_quantity: Number(p.initial_quantity || 10),
-              current_quantity: Number(p.current_quantity || 10),
-              min_quantity: Number(p.min_quantity || 0),
-              supplier: p.supplier || '',
-              created_at: p.created_at || new Date().toISOString(),
-              updated_at: p.updated_at || new Date().toISOString(),
-            } as Product));
-            setProducts(mapped);
-            setFilteredProducts(mapped);
-            toast({
-              title: language === 'ar' ? 'ملاحظة' : 'Note',
-              description: language === 'ar' ? 'تم تحميل المنتجات من إعدادات المخزون المحلية' : 'Loaded products from local inventory (dev)',
-              variant: 'default'
-            });
-            return;
-          } catch (err) {
-            console.error('Failed parsing persisted dev_products', err);
-          }
-        }
-
-        // Fallback to bundled mockProducts if no persisted dev data
-        const mapped = mockProducts.map((mp, idx) => ({
-          id: idx + 1,
-          name: (mp as any).nameFr || (mp as any).name || `Produit ${idx + 1}`,
-          barcode: (mp as any).barcode || '',
-          brand: (mp as any).brand || '',
-          category: (mp as any).categoryId || (mp as any).category || '',
-          buying_price: (mp as any).buying_price || 0,
-          selling_price: (mp as any).price || 0,
-          wholesale_price: (mp as any).wholesale_price || (mp as any).price || 0,
-          margin_percent: (mp as any).margin_percent || 0,
-          initial_quantity: (mp as any).initial_quantity || 10,
-          current_quantity: (mp as any).current_quantity || 10,
-          min_quantity: (mp as any).min_quantity || 0,
-          supplier: '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as Product));
-        setProducts(mapped);
-        setFilteredProducts(mapped);
-        toast({
-          title: language === 'ar' ? 'ملاحظة' : 'Note',
-          description: language === 'ar' ? 'جلب المنتجات من بيانات اختبار محلية' : 'Loaded products from local mock data (dev)',
-          variant: 'default'
-        });
-        return;
-      }
-
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
         description: language === 'ar' ? 'فشل في تحميل المنتجات.' : 'Failed to load products.',
@@ -243,17 +178,23 @@ export default function POS() {
     return () => clearTimeout(handler);
   }, [searchQuery, products, language]);
 
-  // Calculations (use CartItem.price which reflects selected price mode)
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  // discount is fixed amount per unit
-  const totalDiscount = cart.reduce((sum, item) => sum + (item.discount * item.quantity), 0);
-  let total = subtotal - totalDiscount - (finalDiscount || 0);
-  if (total < 0) total = 0;
-  const remainingDebt = total - receivedAmount;
-  const change = receivedAmount - total;
+  // Get product price based on current mode
+  const getProductPrice = (product: Product) => {
+    return priceMode === 'wholesale' ? product.wholesale_price : product.selling_price;
+  };
+
+  // Calculations
+  const subtotal = cart.reduce((sum, item) => sum + (getProductPrice(item.product) * item.quantity), 0);
+  const totalProductDiscounts = cart.reduce((sum, item) => sum + item.discount, 0);
+  const totalBeforeGlobalDiscount = subtotal - totalProductDiscounts;
+  const finalTotal = Math.max(0, totalBeforeGlobalDiscount - globalDiscount);
+
+  const remainingDebt = finalTotal - receivedAmount;
+  const change = receivedAmount - finalTotal;
 
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
+    const productPrice = getProductPrice(product);
     
     if (product.current_quantity <= 0) {
       toast({
@@ -263,8 +204,6 @@ export default function POS() {
       });
       return;
     }
-
-    const priceToUse = priceMode === 'wholesale' ? (product.wholesale_price ?? product.selling_price) : product.selling_price;
 
     if (existingItem) {
       if (existingItem.quantity + 1 > product.current_quantity) {
@@ -280,17 +219,16 @@ export default function POS() {
           ? { 
               ...item, 
               quantity: item.quantity + 1, 
-              total: Math.max((item.price - item.discount), 0) * (item.quantity + 1)
+              total: (item.quantity + 1) * productPrice - item.discount
             }
           : item
       ));
     } else {
       setCart([...cart, { 
-        product,
-        price: priceToUse,
+        product, 
         quantity: 1, 
         discount: 0,
-        total: Math.max(priceToUse - 0, 0)
+        total: productPrice
       }]);
     }
     
@@ -317,15 +255,32 @@ export default function POS() {
     
     setCart(cart.map(item => 
       item.product.id === productId 
-        ? { ...item, quantity: newQuantity, total: Math.max(item.price - item.discount, 0) * newQuantity }
+        ? { 
+            ...item, 
+            quantity: newQuantity, 
+            total: (newQuantity * getProductPrice(item.product)) - item.discount
+          }
         : item
     ));
   };
 
   const updateDiscount = (productId: number, discount: number) => {
+    const item = cart.find(item => item.product.id === productId);
+    if (!item) return;
+    
+    const productPrice = getProductPrice(item.product);
+    const maxDiscount = item.quantity * productPrice;
+    
+    // Ensure discount doesn't exceed item total
+    const safeDiscount = Math.max(0, Math.min(discount, maxDiscount));
+    
     setCart(cart.map(item => 
       item.product.id === productId 
-        ? { ...item, discount, total: Math.max(item.price - discount, 0) * item.quantity }
+        ? { 
+            ...item, 
+            discount: safeDiscount, 
+            total: (item.quantity * productPrice) - safeDiscount
+          }
         : item
     ));
   };
@@ -339,6 +294,7 @@ export default function POS() {
     setClientName('');
     setClientPhone('');
     setReceivedAmount(0);
+    setGlobalDiscount(0);
     setSearchQuery('');
     if (searchInputRef.current) {
       searchInputRef.current.focus();
@@ -357,11 +313,13 @@ export default function POS() {
         client_name: clientName.trim() || null,
         client_phone: clientPhone.trim() || null,
         clientId: null,
-        total,
+        total: finalTotal,
         amount_paid: receivedAmount,
         createdBy: user.id || null,
         createdByType: user.role === "employee" ? "employee" : "admin",
-        items: cart.map(({ product, quantity, total, price, discount }) => ({
+        price_mode: priceMode, // Include price mode in invoice
+        global_discount: globalDiscount, // Include global discount
+        items: cart.map(({ product, quantity, discount, total }) => ({
           id: product.id,
           name: product.name,
           product_id: product.id,
@@ -369,33 +327,22 @@ export default function POS() {
           barcode: product.barcode,
           buying_price: product.buying_price ?? 0,
           margin_percent: product.margin_percent ?? 0,
-          selling_price: price ?? product.selling_price ?? 0,
-          discount_per_unit: discount ?? 0,
+          selling_price: priceMode === 'wholesale' ? product.wholesale_price : product.selling_price,
           quantity,
           min_quantity: product.min_quantity ?? 0,
+          discount, // Store the discount amount
           total
         }))
-        ,
-        final_discount: finalDiscount || 0
       };
 
-      const response = await fetch('/api/invoices', {
+      const response = await fetch(' /api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)
       });
 
       if (!response.ok) {
-        // Try to extract server error message/body for better debugging
-        let serverMsg = response.statusText;
-        try {
-          const json = await response.json();
-          serverMsg = json.message || JSON.stringify(json);
-        } catch (e) {
-          try { serverMsg = await response.text(); } catch (_) {}
-        }
-        console.error('Invoice creation failed', response.status, serverMsg);
-        throw new Error(serverMsg || `HTTP ${response.status}`);
+        throw new Error('Failed to create sale invoice');
       }
 
       const newInvoice = await response.json();
@@ -421,12 +368,11 @@ export default function POS() {
       // Refresh products to update stock
       fetchProducts();
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error completing sale:', error);
-      const msg = (error && error.message) ? error.message : (language === 'ar' ? 'فشل في إتمام عملية البيع.' : 'Échec de la finalisation de la vente.');
       toast({
         title: language === 'ar' ? 'خطأ' : 'Erreur',
-        description: msg,
+        description: language === 'ar' ? 'فشل في إتمام عملية البيع.' : 'Échec de la finalisation de la vente.',
         variant: 'destructive'
       });
     } finally {
@@ -620,46 +566,91 @@ export default function POS() {
                 className={`${isRTL ? 'pr-10' : 'pl-10'} search-input`}
               />
             </div>
+
+            {/* Price Mode Toggle */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  type="button"
+                  variant={priceMode === 'retail' ? 'default' : 'outline'}
+                  onClick={() => setPriceMode('retail')}
+                  className="flex items-center gap-2"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  {language === 'ar' ? 'بيع بالتجزئة' : 'Vente au détail'}
+                </Button>
+                <Button
+                  type="button"
+                  variant={priceMode === 'wholesale' ? 'default' : 'outline'}
+                  onClick={() => setPriceMode('wholesale')}
+                  className="flex items-center gap-2"
+                >
+                  <Store className="h-4 w-4" />
+                  {language === 'ar' ? 'بيع بالجملة' : 'Vente en gros'}
+                </Button>
+              </div>
+              <Badge variant={priceMode === 'retail' ? 'default' : 'secondary'}>
+                {priceMode === 'retail' 
+                  ? language === 'ar' ? 'سعر التجزئة' : 'Prix détail'
+                  : language === 'ar' ? 'سعر الجملة' : 'Prix gros'
+                }
+              </Badge>
+            </div>
           </CardContent>
         </Card>
 
         {/* Products Grid */}
         <Card className="card-elevated flex-1">
           <CardHeader>
-            <CardTitle>{language === 'ar' ? `المنتجات المتوفرة (${filteredProducts.length})` : `Produits Disponibles (${filteredProducts.length})`}</CardTitle>
+            <CardTitle>
+              {language === 'ar' ? `المنتجات المتوفرة (${filteredProducts.length})` : `Produits Disponibles (${filteredProducts.length})`}
+              <Badge variant="outline" className="ml-2">
+                {priceMode === 'retail' 
+                  ? language === 'ar' ? 'سعر التجزئة' : 'Prix détail'
+                  : language === 'ar' ? 'سعر الجملة' : 'Prix gros'
+                }
+              </Badge>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 ease-in-out border-2 border-transparent hover:border-blue-400 bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
-                  onClick={() => addToCart(product)}
-                >
-                  <CardContent className="p-4 flex flex-col justify-between h-full">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-semibold text-base line-clamp-2 text-gray-800 dark:text-gray-100">{product.name}</h3>
-                        <Badge 
-                          variant={product.current_quantity > product.min_quantity ? 'default' : 'destructive'}
-                          className="text-xs px-2 py-1 rounded-full"
-                        >
-                          {product.current_quantity}
-                        </Badge>
+              {filteredProducts.map((product) => {
+                const currentPrice = getProductPrice(product);
+                return (
+                  <Card
+                    key={product.id}
+                    className="cursor-pointer hover:shadow-lg transition-all duration-200 ease-in-out border-2 border-transparent hover:border-blue-400 bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
+                    onClick={() => addToCart(product)}
+                  >
+                    <CardContent className="p-4 flex flex-col justify-between h-full">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-semibold text-base line-clamp-2 text-gray-800 dark:text-gray-100">{product.name}</h3>
+                          <Badge 
+                            variant={product.current_quantity > product.min_quantity ? 'default' : 'destructive'}
+                            className="text-xs px-2 py-1 rounded-full"
+                          >
+                            {product.current_quantity}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.barcode}</p>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{product.barcode}</p>
-                    </div>
-                    <div className="mt-4 flex flex-col gap-1 border-t border-gray-200 dark:border-gray-700 pt-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xl text-blue-600 dark:text-blue-400">{formatCurrencyLocal(product.selling_price, language)}</span>
-                        {product.wholesale_price !== undefined && (
-                          <span className="text-sm font-semibold text-green-600">{formatCurrencyLocal(product.wholesale_price, language)}</span>
-                        )}
+                      <div className="mt-4 flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-3">
+                        <div>
+                          <span className="font-bold text-xl text-blue-600 dark:text-blue-400">
+                            {formatCurrencyLocal(currentPrice, language)}
+                          </span>
+                          {priceMode === 'wholesale' && product.selling_price > currentPrice && (
+                            <div className="text-xs text-gray-500 line-through">
+                              {formatCurrencyLocal(product.selling_price, language)}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -674,23 +665,13 @@ export default function POS() {
               <CardTitle className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5" />
                 {language === 'ar' ? `السلة (${cart.length})` : `Panier (${cart.length})`}
+                <Badge variant="outline" className="text-xs">
+                  {priceMode === 'retail' 
+                    ? language === 'ar' ? 'تجزئة' : 'détail'
+                    : language === 'ar' ? 'جملة' : 'gros'
+                  }
+                </Badge>
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant={priceMode === 'retail' ? 'default' : 'outline'}
-                  onClick={() => setPriceMode('retail')}
-                >
-                  {language === 'ar' ? 'سعر البيع' : 'Prix vente'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant={priceMode === 'wholesale' ? 'default' : 'outline'}
-                  onClick={() => setPriceMode('wholesale')}
-                >
-                  {language === 'ar' ? 'سعر الجملة' : 'Prix gros'}
-                </Button>
-              </div>
               {cart.length > 0 && (
                 <Button variant="ghost" size="sm" onClick={clearCart}>
                   <Trash2 className="h-4 w-4" />
@@ -731,60 +712,78 @@ export default function POS() {
                   <p className="text-xs">{language === 'ar' ? 'امسح أو ابحث عن المنتجات' : 'Scannez ou recherchez des produits'}</p>
                 </div>
               ) : (
-                cart.map((item) => (
-                  <div key={item.product.id} className="bg-muted/20 rounded-lg p-3 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{item.product.name}</h4>
-                        <p className="text-xs text-muted-foreground">{item.product.brand}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFromCart(item.product.id)}
-                        className="h-6 w-6"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                cart.map((item) => {
+                  const productPrice = getProductPrice(item.product);
+                  const itemSubtotal = productPrice * item.quantity;
+                  return (
+                    <div key={item.product.id} className="bg-muted/20 rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm">{item.product.name}</h4>
+                          <p className="text-xs text-muted-foreground">{item.product.brand}</p>
+                          <div className="text-xs text-gray-500">
+                            {formatCurrencyLocal(productPrice, language)} × {item.quantity}
+                          </div>
+                        </div>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="icon"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => removeFromCart(item.product.id)}
                           className="h-6 w-6"
                         >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                          className="h-6 w-6"
-                        >
-                          <Plus className="h-3 w-3" />
+                          <X className="h-3 w-3" />
                         </Button>
                       </div>
-                      <span className="font-bold text-success">{formatCurrencyLocal(item.total, language)}</span>
-                    </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                            className="h-6 w-6"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                            className="h-6 w-6"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="text-right">
+                          {item.discount > 0 && (
+                            <div className="text-xs text-red-500 line-through">
+                              {formatCurrencyLocal(itemSubtotal, language)}
+                            </div>
+                          )}
+                          <span className="font-bold text-success">
+                            {formatCurrencyLocal(item.total, language)}
+                          </span>
+                        </div>
+                      </div>
 
-                    {/* Discount Input */}
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        placeholder={language === 'ar' ? 'الخصم دج' : 'Remise (DZD)'}
-                        value={item.discount}
-                        onChange={(e) => updateDiscount(item.product.id, Number(e.target.value))}
-                        className="h-6 text-xs"
-                        min="0"
-                      />
-                      <span className="text-xs text-muted-foreground">DZD</span>
+                      {/* Discount Input - Changed from % to DA */}
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs whitespace-nowrap">{language === 'ar' ? 'خصم:' : 'Remise:'}</Label>
+                        <Input
+                          type="number"
+                          placeholder={language === 'ar' ? 'المبلغ بالدينار' : 'Montant en DA'}
+                          value={item.discount}
+                          onChange={(e) => updateDiscount(item.product.id, Number(e.target.value))}
+                          className="h-6 text-xs"
+                          min="0"
+                          max={itemSubtotal}
+                        />
+                        <span className="text-xs text-muted-foreground">DA</span>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
@@ -799,22 +798,43 @@ export default function POS() {
                   <span>{language === 'ar' ? 'المجموع الفرعي' : 'Sous-total'}:</span>
                   <span>{formatCurrencyLocal(subtotal, language)}</span>
                 </div>
-                {totalDiscount > 0 && (
+                
+                {totalProductDiscounts > 0 && (
                   <div className="flex justify-between text-yellow-200">
-                    <span>{language === 'ar' ? 'الخصم' : 'Remise'}:</span>
-                    <span>-{formatCurrencyLocal(totalDiscount, language)}</span>
+                    <span>{language === 'ar' ? 'خصومات المنتجات' : 'Remises produits'}:</span>
+                    <span>-{formatCurrencyLocal(totalProductDiscounts, language)}</span>
                   </div>
                 )}
-                {finalDiscount > 0 && (
-                  <div className="flex justify-between text-yellow-200">
-                    <span>{language === 'ar' ? 'الخصم النهائي' : 'Remise finale'}:</span>
-                    <span>-{formatCurrencyLocal(finalDiscount, language)}</span>
+                
+                {/* Global Discount Input */}
+                <div className="flex items-center justify-between pt-2 border-t border-primary-foreground/20">
+                  <div className="flex items-center gap-2">
+                    <span>{language === 'ar' ? 'الخصم العام:' : 'Remise générale:'}</span>
+                    <Input
+                      type="number"
+                      value={globalDiscount}
+                      onChange={(e) => setGlobalDiscount(Math.max(0, Number(e.target.value)))}
+                      className="h-6 w-24 text-xs bg-white/10 border-white/20 text-white"
+                      min="0"
+                      max={totalBeforeGlobalDiscount}
+                    />
+                    <span className="text-xs">DA</span>
                   </div>
-                )}
+                  {globalDiscount > 0 && (
+                    <span className="text-yellow-200">-{formatCurrencyLocal(globalDiscount, language)}</span>
+                  )}
+                </div>
+                
                 <hr className="border-primary-foreground/20" />
-                <div className="flex justify-between text-lg font-bold">
-                  <span>{language === 'ar' ? 'الإجمالي' : 'Total'}:</span>
-                  <span>{formatCurrencyLocal(total, language)}</span>
+                
+                <div className="flex justify-between">
+                  <span>{language === 'ar' ? 'المجموع قبل الخصم' : 'Total avant remise'}:</span>
+                  <span>{formatCurrencyLocal(totalBeforeGlobalDiscount, language)}</span>
+                </div>
+                
+                <div className="flex justify-between text-lg font-bold border-t border-primary-foreground/20 pt-2">
+                  <span>{language === 'ar' ? 'الإجمالي النهائي' : 'Total final'}:</span>
+                  <span>{formatCurrencyLocal(finalTotal, language)}</span>
                 </div>
               </div>
 
@@ -824,17 +844,8 @@ export default function POS() {
                 size="lg"
               >
                 <CreditCard className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4`} />
-                {language === 'ar' ? `دفع ${formatCurrencyLocal(total, language)}` : `Payer ${formatCurrencyLocal(total, language)}`}
+                {language === 'ar' ? `دفع ${formatCurrencyLocal(finalTotal, language)}` : `Payer ${formatCurrencyLocal(finalTotal, language)}`}
               </Button>
-              <div className="mt-2">
-                <Label className="text-xs">{language === 'ar' ? 'الخصم النهائي (دج)' : 'Remise finale (DZD)'}</Label>
-                <Input
-                  type="number"
-                  value={finalDiscount}
-                  onChange={(e) => setFinalDiscount(Number(e.target.value) || 0)}
-                  className="mt-1 text-black"
-                />
-              </div>
             </CardContent>
           </Card>
         )}
@@ -846,7 +857,7 @@ export default function POS() {
           <DialogHeader>
             <DialogTitle>{language === 'ar' ? 'إتمام الدفع نقدا' : 'Finaliser le Paiement en Espèces'}</DialogTitle>
             <DialogDescription>
-              {language === 'ar' ? `الإجمالي المطلوب: ${formatCurrencyLocal(total, language)}` : `Total à payer: ${formatCurrencyLocal(total, language)}`}
+              {language === 'ar' ? `الإجمالي المطلوب: ${formatCurrencyLocal(finalTotal, language)}` : `Total à payer: ${formatCurrencyLocal(finalTotal, language)}`}
             </DialogDescription>
           </DialogHeader>
 
@@ -864,7 +875,7 @@ export default function POS() {
             </div>
             
             <Button
-              onClick={() => setReceivedAmount(total)}
+              onClick={() => setReceivedAmount(finalTotal)}
               variant="outline"
               className="w-full"
             >

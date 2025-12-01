@@ -45,6 +45,8 @@ interface Product {
   name: string;
   nameAr: string;
   price: number;
+  // prix de gros / wholesale price
+  prixDeGros?: number;
   description: string;
   descriptionAr: string;
   image: string;
@@ -97,6 +99,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigate }) => {
       name: 'Brake Pads', 
       nameAr: 'مكابح السيارة', 
       price: 2500, 
+      prixDeGros: 2000,
       description: 'High quality brake pads', 
       descriptionAr: 'مكابح عالية الجودة للسيارات', 
       image: '/src/assets/automotive-parts.jpg', 
@@ -140,6 +143,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigate }) => {
     name: '',
     nameAr: '',
     price: 0,
+    prixDeGros: 0,
     description: '',
     descriptionAr: '',
     image: '',
@@ -528,6 +532,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigate }) => {
                             />
                           </div>
                           <div className="space-y-2">
+                            <Label className="text-sm font-medium">Prix de gros (دج)</Label>
+                            <Input
+                              type="number"
+                              value={newProduct.prixDeGros}
+                              onChange={(e) => setNewProduct({...newProduct, prixDeGros: Number(e.target.value)})}
+                              placeholder="0"
+                              className="border-primary/30 focus:border-primary"
+                            />
+                          </div>
+                          <div className="space-y-2">
                             <Label className="text-sm font-medium">رابط الصورة</Label>
                             <Input
                               value={newProduct.image}
@@ -581,7 +595,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onNavigate }) => {
                           <div className="flex-1">
                             <h5 className="font-semibold text-lg">{product.nameAr}</h5>
                             <p className="text-sm text-muted-foreground">{product.name}</p>
-                            <Badge variant="outline" className="mt-1 border-primary/30 text-primary">{product.price} دج</Badge>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="border-primary/30 text-primary">{product.price} دج</Badge>
+                              {product.prixDeGros !== undefined && (
+                                <Badge variant="outline" className="border-green-200 text-green-700">{product.prixDeGros} دج</Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" className="border-primary/30 hover:bg-primary/10">

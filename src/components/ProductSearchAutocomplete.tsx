@@ -122,8 +122,13 @@ const ProductSearchAutocomplete = ({ onProductSelect, placeholder = "Rechercher 
                         <div className="font-medium text-foreground">
                           {product.nameFr}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          Code: {product.barcode} • Prix: {product.price.toLocaleString()} DZD
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <span>Code: {product.barcode} •</span>
+                          <span>Prix: {product.price.toLocaleString()} DZD</span>
+                          {/* prix de gros shown in green when present */}
+                          {product.prixDeGros !== undefined && (
+                            <span className="text-green-600 font-semibold">Prix de gros: {product.prixDeGros.toLocaleString()} DZD</span>
+                          )}
                         </div>
                       </div>
                     </div>

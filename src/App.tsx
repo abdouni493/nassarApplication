@@ -89,7 +89,7 @@ fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
         if (data?.favicon_url) {
-          const faviconUrl = ` ${data.favicon_url}`;
+          const faviconUrl = `${data.favicon_url}`;
           setFavicon(faviconUrl);
 
           // Find or create <link rel="icon">

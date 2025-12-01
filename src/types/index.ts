@@ -34,6 +34,8 @@ export interface Product {
   nameFr: string;
   nameAr?: string;
   price: number;
+  // prix de gros (wholesale price) — optional and displayed in the UI
+  prixDeGros?: number;
   descriptionFr: string;
   descriptionAr?: string;
   image: string | null;

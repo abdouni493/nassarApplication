@@ -33,6 +33,7 @@ interface CategoryProduct {
   descriptionFr: string;
   descriptionAr: string;
   selling_price: number;
+  wholesale_price?: number;
   quality: number;
   image: string;
   created_at: string;
@@ -46,6 +47,7 @@ interface FormData {
   descriptionFr: string;
   descriptionAr: string;
   sellingPrice: number;
+  wholesalePrice: number;
   quality: number;
   imageFile: File | null;
   preview: string;
@@ -66,6 +68,7 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
     descriptionFr: "",
     descriptionAr: "",
     sellingPrice: 0,
+    wholesalePrice: 0,
     quality: 5,
     imageFile: null,
     preview: "",
@@ -120,6 +123,8 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
       nameFr: product.name || "",
       nameAr: product.name || "",
       sellingPrice: product.selling_price || 0,
+      // support different naming coming from API/mock (wholesale_price or prixDeGros)
+      wholesalePrice: product.wholesale_price ?? product.prixDeGros ?? 0,
       preview: product.image || "",
     });
     setSearchQuery("");
@@ -137,6 +142,7 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
       fd.append("descriptionFr", formData.descriptionFr);
       fd.append("descriptionAr", formData.descriptionAr);
       fd.append("sellingPrice", formData.sellingPrice.toString());
+      fd.append("wholesalePrice", formData.wholesalePrice.toString());
       fd.append("quality", formData.quality.toString());
       
       if (formData.imageFile) {
@@ -170,6 +176,7 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
       fd.append("descriptionFr", formData.descriptionFr);
       fd.append("descriptionAr", formData.descriptionAr);
       fd.append("sellingPrice", formData.sellingPrice.toString());
+      fd.append("wholesalePrice", formData.wholesalePrice.toString());
       fd.append("quality", formData.quality.toString());
       
       if (formData.imageFile) {
@@ -221,6 +228,7 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
       descriptionFr: product.descriptionFr || product.description || "",
       descriptionAr: product.descriptionAr || "",
       sellingPrice: product.selling_price || 0,
+      wholesalePrice: product.wholesale_price ?? product.prixDeGros ?? 0,
       quality: product.quality || 5,
       imageFile: null,
       preview: product.image || "",
@@ -241,6 +249,7 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
       descriptionFr: "",
       descriptionAr: "",
       sellingPrice: 0,
+      wholesalePrice: 0,
       quality: 5,
       imageFile: null,
       preview: "",
@@ -315,8 +324,11 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
                               {product.barcode}
                             </div>
                           </div>
-                          <div className="text-sm text-primary font-medium">
-                            {product.selling_price}
+                          <div className="text-sm flex flex-col items-end">
+                            <div className="text-primary font-medium">{product.selling_price}</div>
+                            {(product.wholesale_price ?? product.prixDeGros) !== undefined && (
+                              <div className="text-green-600 text-sm font-semibold">Prix de gros: {(product.wholesale_price ?? product.prixDeGros)}</div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -383,6 +395,19 @@ const ProductsView = ({ category, onBack }: ProductsViewProps) => {
                     setFormData({ ...formData, sellingPrice: parseFloat(e.target.value) || 0 })
                   }
                   placeholder="Prix de vente"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="wholesalePrice">Prix de gros</Label>
+                <Input
+                  id="wholesalePrice"
+                  type="number"
+                  value={formData.wholesalePrice}
+                  onChange={(e) =>
+                    setFormData({ ...formData, wholesalePrice: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="Prix de gros (wholesale)"
                 />
               </div>
               

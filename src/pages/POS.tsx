@@ -121,7 +121,7 @@ export default function POS() {
   // --- Fetch Products from API ---
   const fetchProducts = async () => {
     try {
-      const response = await fetch(' /api/products');
+      const response = await fetch('/api/products');
       if (response.ok) {
         const data = await response.json();
         setProducts(data);
@@ -335,7 +335,7 @@ export default function POS() {
         }))
       };
 
-      const response = await fetch(' /api/invoices', {
+      const response = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoiceData)

@@ -28,8 +28,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from '@/contexts/LanguageContext';
-import { mockProducts } from '@/data/mockData';
-import { formatCurrency } from '@/lib/utils';
 
 type Product = {
   id: number;
@@ -39,7 +37,7 @@ type Product = {
   category: string;
   buying_price: number;
   selling_price: number;
-  wholesale_price: number;  // سعر البيع بالجملة
+  wholesale_price: number; // Add this line
   margin_percent: number;
   initial_quantity: number;
   current_quantity: number;
@@ -58,14 +56,14 @@ const allCategories: Record<string, { fr: string; ar: string }> = {
   safety_ppe: { fr: "Sécurité & EPI", ar: "معدات الحماية الشخصية" },
 };
 
-const API = "/api/products";
+const API = " /api/products";
 
 export default function Inventory() {
   const { toast } = useToast();
   const { language, isRTL } = useLanguage();
 
   const currency = (n: number) =>
-    formatCurrency(n || 0, language === 'ar' ? 'ar-DZ' : 'fr-DZ');
+    new Intl.NumberFormat(language === 'ar' ? 'ar-DZ' : 'fr-DZ', { style: "currency", currency: "DZD" }).format(n || 0);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -84,8 +82,6 @@ export default function Inventory() {
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<Product | null>(null);
 
-  
-
   // Load
   useEffect(() => {
     load();
@@ -98,50 +94,6 @@ export default function Inventory() {
       setProducts(d);
     } catch (e) {
       console.error(e);
-      // If the backend is unavailable, use the local mock data in dev mode
-      const viteDev = (import.meta as any).env?.DEV === true;
-      if (viteDev) {
-        // Try to load persisted dev products from localStorage first
-        const persisted = localStorage.getItem('dev_products');
-        if (persisted) {
-          try {
-            setProducts(JSON.parse(persisted));
-            toast({
-              title: language === 'ar' ? 'ملاحظة' : 'Note',
-              description: language === 'ar' ? 'تم تحميل المنتجات من localStorage' : 'Loaded products from localStorage (dev)',
-              variant: 'default'
-            });
-            return;
-          } catch (_) {
-            // fall through to mockProducts
-          }
-        }
-
-        const mapped = mockProducts.map((mp, idx) => ({
-          id: idx + 1,
-          name: (mp as any).nameFr || (mp as any).name || `Produit ${idx + 1}`,
-          barcode: (mp as any).barcode || '',
-          brand: (mp as any).brand || '',
-          category: (mp as any).categoryId || (mp as any).category || '',
-          buying_price: (mp as any).buying_price || 0,
-          selling_price: (mp as any).price || 0,
-          wholesale_price: 0,
-          margin_percent: (mp as any).margin_percent || 0,
-          initial_quantity: (mp as any).initial_quantity || 10,
-          current_quantity: (mp as any).current_quantity || 10,
-          min_quantity: (mp as any).min_quantity || 0,
-          supplier: '',
-          supplierName: ''
-        } as Product));
-        setProducts(mapped);
-        toast({
-          title: language === 'ar' ? 'ملاحظة' : 'Note',
-          description: language === 'ar' ? 'جلب المنتجات من بيانات الاختبار المحلية' : 'Loaded products from local mock data (dev fallback)',
-          variant: 'default'
-        });
-        return;
-      }
-
       toast({
         title: language === 'ar' ? 'خطأ' : 'Erreur',
         description: language === 'ar' ? 'غير قادر على تحميل المنتجات' : 'Impossible de charger les produits',
@@ -151,13 +103,13 @@ export default function Inventory() {
   }
 
  async function addProduct() {
-  // Auto-generate barcode if empty
-  const productData = {
-    ...addForm,
-    barcode: addForm.barcode || `P${Date.now()}`, // e.g., P1695032123456
-  };
-
   try {
+    // Auto-generate barcode if empty
+    const productData = {
+      ...addForm,
+      barcode: addForm.barcode || `P${Date.now()}`, // e.g., P1695032123456
+    };
+
     const r = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -171,34 +123,6 @@ export default function Inventory() {
     await load();
   } catch (e) {
     console.error(e);
-    const viteDev = (import.meta as any).env?.DEV === true;
-    if (viteDev) {
-      // Local fallback: add to state and persist to localStorage
-      const nextId = (products.reduce((m, p) => Math.max(m, p.id), 0) || 0) + 1;
-      const newProd: Product = {
-        id: nextId,
-        name: (productData as any).name || `Produit ${nextId}`,
-        barcode: (productData as any).barcode,
-        brand: (productData as any).brand || '',
-        category: (productData as any).category || '',
-        buying_price: 0,
-        selling_price: 0,
-        wholesale_price: 0,
-        margin_percent: 0,
-        initial_quantity: 10,
-        current_quantity: 10,
-        min_quantity: 0,
-        supplier: '',
-      };
-      const updated = [newProd, ...products];
-      setProducts(updated);
-      try { localStorage.setItem('dev_products', JSON.stringify(updated)); } catch (_) {}
-      setAddOpen(false);
-      setAddForm({ name: "", barcode: "", brand: "", category: "" });
-      toast({ title: language === 'ar' ? '✅ تم إضافة المنتج (وضع التطوير)' : '✅ Produit ajouté (dev)' });
-      return;
-    }
-
     toast({
       title: language === 'ar' ? 'خطأ' : 'Erreur',
       description: language === 'ar' ? 'الاضافة غير ممكنة' : 'Ajout impossible',
@@ -223,17 +147,6 @@ export default function Inventory() {
       await load();
     } catch (e) {
       console.error(e);
-      const viteDev = (import.meta as any).env?.DEV === true;
-      if (viteDev) {
-        const updated = products.map((p) => (p.id === editForm.id ? editForm : p));
-        setProducts(updated);
-        try { localStorage.setItem('dev_products', JSON.stringify(updated)); } catch (_) {}
-        setEditOpen(false);
-        setEditForm(null);
-        toast({ title: language === 'ar' ? '✏️ تم تعديل المنتج (وضع التطوير)' : '✏️ Produit modifié (dev)' });
-        return;
-      }
-
       toast({
         title: language === 'ar' ? 'خطأ' : 'Erreur',
         description: language === 'ar' ? 'التعديل غير ممكن' : 'Modification impossible',
@@ -250,15 +163,6 @@ export default function Inventory() {
       await load();
     } catch (e) {
       console.error(e);
-      const viteDev = (import.meta as any).env?.DEV === true;
-      if (viteDev) {
-        const updated = products.filter((p) => p.id !== id);
-        setProducts(updated);
-        try { localStorage.setItem('dev_products', JSON.stringify(updated)); } catch (_) {}
-        toast({ title: language === 'ar' ? '🗑️ تم حذف المنتج (وضع التطوير)' : '🗑️ Produit supprimé (dev)' });
-        return;
-      }
-
       toast({
         title: language === 'ar' ? 'خطأ' : 'Erreur',
         description: language === 'ar' ? 'الحذف غير ممكن' : 'Suppression impossible',
@@ -462,7 +366,7 @@ export default function Inventory() {
                     </span>
 
                     <span className="text-muted-foreground">
-                      {language === 'ar' ? 'سعر الجملة:' : 'Prix gros:'}
+                      {language === 'ar' ? 'سعر البيع بالجملة:' : 'Prix vente de gros:'}
                     </span>
                     <span className="font-semibold text-green-600">
                       {currency(p.wholesale_price ?? 0)}
@@ -545,7 +449,7 @@ export default function Inventory() {
                             </div>
 
                             {/* Commerce */}
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-4 gap-4">
                               <div>
                                 <Label>{language === 'ar' ? 'سعر الشراء' : 'Prix achat'}</Label>
                                 <Input
@@ -576,18 +480,17 @@ export default function Inventory() {
                                   }
                                 />
                               </div>
-                            </div>
-
-                            {/* Wholesale Price */}
-                            <div>
-                              <Label>{language === 'ar' ? 'سعر البيع بالجملة' : 'Prix vente de gros'}</Label>
-                              <Input
-                                type="number"
-                                value={editForm.wholesale_price ?? 0}
-                                onChange={(e) =>
-                                  setEditForm({ ...editForm, wholesale_price: Number(e.target.value) })
-                                }
-                              />
+                              <div>
+                                <Label>{language === 'ar' ? 'سعر البيع بالجملة' : 'Prix vente de gros'}</Label>
+                                <Input
+                                  type="number"
+                                  value={editForm.wholesale_price ?? 0}
+                                  onChange={(e) =>
+                                    setEditForm({ ...editForm, wholesale_price: Number(e.target.value) })
+                                  }
+                                  className="border-green-300 focus:ring-green-500 focus:border-green-500"
+                                />
+                              </div>
                             </div>
 
                             {/* Stock */}

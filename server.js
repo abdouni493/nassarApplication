@@ -133,6 +133,8 @@ if (!settingsExist) {
     VALUES ('Mon Site', 'موقعي', 'Description du site web', 'وصف الموقع الإلكتروني')
   `);
 }
+    // Ensure feature flag exists and enable Raptor mini for all clients by default
+    await ensureColumn('website_settings', 'enable_raptor_mini', 'BOOLEAN DEFAULT TRUE', 1);
 
     // Add the new contacts table
 await db.exec(`
@@ -195,6 +197,7 @@ await db.exec(`
         brand TEXT,
         category TEXT,
         buying_price REAL DEFAULT 0,
+        wholesale_price REAL DEFAULT 0,
         selling_price REAL DEFAULT 0,
         margin_percent REAL DEFAULT 0,
         initial_quantity INTEGER DEFAULT 0,
@@ -208,6 +211,8 @@ await db.exec(`
     `);
     // add category_id column to products if missing (keeps compatibility with existing `category` TEXT)
     await ensureColumn('products', 'category_id', 'INTEGER', null);
+    // ensure wholesale price column exists for products
+    await ensureColumn('products', 'wholesale_price', 'REAL DEFAULT 0', 0);
 
    // Add this after your existing table creation code
 await db.exec(`
@@ -785,7 +790,7 @@ app.get('/api/products', async (req, res) => {
 
 
 app.post('/api/products', async (req, res) => {
-  const { name, barcode, brand, category, buying_price = 0, selling_price = 0, margin_percent = 0,
+  const { name, barcode, brand, category, buying_price = 0, wholesale_price = 0, selling_price = 0, margin_percent = 0,
           initial_quantity = 0, current_quantity = 0, min_quantity = 0, supplier = null } = req.body;
 
   if (!name || !barcode || !brand || !category) {
@@ -795,9 +800,9 @@ app.post('/api/products', async (req, res) => {
   try {
     const result = await db.run(
       `INSERT INTO products 
-        (name, barcode, brand, category, buying_price, selling_price, margin_percent, initial_quantity, current_quantity, min_quantity, supplier) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, barcode, brand, category, buying_price, selling_price, margin_percent, initial_quantity, current_quantity, min_quantity, supplier]
+        (name, barcode, brand, category, buying_price, wholesale_price, selling_price, margin_percent, initial_quantity, current_quantity, min_quantity, supplier) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, barcode, brand, category, buying_price, wholesale_price, selling_price, margin_percent, initial_quantity, current_quantity, min_quantity, supplier]
     );
 
     const product = await db.get(`

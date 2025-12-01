@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -68,6 +69,9 @@ export default function Inventory() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
+  // selection for bulk actions
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // Add form (ONLY these 4 fields)
   const [addOpen, setAddOpen] = useState(false);
@@ -92,6 +96,8 @@ export default function Inventory() {
       const r = await fetch(API);
       const d = await r.json();
       setProducts(d);
+      // keep only selections that still exist
+      setSelectedIds((prev) => prev.filter((id) => d.some((p: Product) => p.id === id)));
     } catch (e) {
       console.error(e);
       toast({
@@ -182,6 +188,34 @@ export default function Inventory() {
     }
   }
 
+  async function deleteSelected() {
+    if (selectedIds.length === 0) return;
+    if (!confirm(language === 'ar' ? `هل أنت متأكد من حذف ${selectedIds.length} منتج؟` : `Are you sure you want to delete ${selectedIds.length} products?`)) return;
+    try {
+      await Promise.all(selectedIds.map((id) => fetch(`${API}/${id}`, { method: 'DELETE' })));
+      toast({ title: language === 'ar' ? `🗑️ تم حذف ${selectedIds.length} منتج` : `🗑️ ${selectedIds.length} products deleted` });
+      setSelectedIds([]);
+      await load();
+    } catch (e) {
+      console.error(e);
+      toast({ title: language === 'ar' ? 'خطأ' : 'Erreur', description: language === 'ar' ? 'الحذف غير ممكن' : 'Suppression impossible', variant: 'destructive' });
+    }
+  }
+
+  async function deleteAll() {
+    if (!confirm(language === 'ar' ? 'هل أنت متأكد من حذف كل المنتجات؟' : 'Are you sure you want to delete ALL products?')) return;
+    try {
+      // Delete all products one by one (API may not support bulk delete)
+      await Promise.all(products.map((p) => fetch(`${API}/${p.id}`, { method: 'DELETE' })));
+      toast({ title: language === 'ar' ? '🗑️ تم حذف كل المنتجات' : '🗑️ All products deleted' });
+      setSelectedIds([]);
+      await load();
+    } catch (e) {
+      console.error(e);
+      toast({ title: language === 'ar' ? 'خطأ' : 'Erreur', description: language === 'ar' ? 'الحذف غير ممكن' : 'Suppression impossible', variant: 'destructive' });
+    }
+  }
+
   const categories = useMemo(() => {
     const set = new Set<string>();
     products.forEach((p) => p.category && set.add(p.category));
@@ -196,8 +230,14 @@ export default function Inventory() {
       (p.barcode || "").toLowerCase().includes(q) ||
       (p.category || "").toLowerCase().includes(q);
     const cat = categoryFilter === "all" || p.category === categoryFilter;
-    return matches && cat;
+    const stockOk =
+      stockFilter === "all" ||
+      (stockFilter === "in_stock" && (p.current_quantity ?? 0) > 0) ||
+      (stockFilter === "out_of_stock" && (p.current_quantity ?? 0) <= 0);
+    return matches && cat && stockOk;
   });
+
+  const isAllFilteredSelected = filtered.length > 0 && filtered.every((p) => selectedIds.includes(p.id));
 
   return (
     <div className={`space-y-6 animate-fade-in ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -301,6 +341,40 @@ export default function Inventory() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <Select value={stockFilter} onValueChange={setStockFilter}>
+              <SelectTrigger className="w-full md:w-[160px]">
+                <SelectValue>
+                  {stockFilter === 'all' ? (language === 'ar' ? 'حالة المخزون' : 'Stock status') : stockFilter === 'in_stock' ? (language === 'ar' ? 'متوفر' : 'En stock') : (language === 'ar' ? 'نفد' : 'En rupture')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{language === 'ar' ? 'كل الحالات' : 'Tous'}</SelectItem>
+                <SelectItem value="in_stock">{language === 'ar' ? 'متوفر' : 'En stock'}</SelectItem>
+                <SelectItem value="out_of_stock">{language === 'ar' ? 'نفد' : 'En rupture'}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* bulk selection + actions */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox disabled={filtered.length === 0} checked={isAllFilteredSelected} onCheckedChange={(v) => {
+                  if (v) {
+                    // add all filtered ids to selection
+                    setSelectedIds((prev) => Array.from(new Set([...prev, ...filtered.map(f => f.id)])));
+                  } else {
+                    // remove filtered ids from selection
+                    setSelectedIds((prev) => prev.filter(id => !filtered.some(f => f.id === id)));
+                  }
+                }} />
+                <span className="text-sm text-muted-foreground">{language === 'ar' ? `تحديد الكل (${filtered.length})` : `Select visible (${filtered.length})`}</span>
+              </div>
+              <Button size="sm" variant="destructive" disabled={selectedIds.length === 0} onClick={deleteSelected}>
+                {language === 'ar' ? 'حذف المحدد' : 'Delete selected'}
+              </Button>
+              <Button size="sm" variant="destructive" onClick={deleteAll}>
+                {language === 'ar' ? 'حذف الكل' : 'Delete all'}
+              </Button>
+            </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-full md:w-[220px]">
                 <SelectValue />
@@ -335,7 +409,16 @@ export default function Inventory() {
               <Card className="card-elevated hover:shadow-xl transition">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{p.name}</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedIds.includes(p.id)}
+                        onCheckedChange={(v) => {
+                          if (v) setSelectedIds((prev) => Array.from(new Set([...prev, p.id])));
+                          else setSelectedIds((prev) => prev.filter((id) => id !== p.id));
+                        }}
+                      />
+                      <CardTitle className="text-lg">{p.name}</CardTitle>
+                    </div>
                     {p.current_quantity <= (p.min_quantity || 0) && (
                       <Badge variant="destructive" className="flex items-center gap-1">
                         <AlertTriangle className={`${isRTL ? 'ml-1' : 'mr-1'} h-3 w-3`} />

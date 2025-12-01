@@ -85,9 +85,8 @@ const SettingsManagement = () => {
 
   const fetchSettings = async () => {
     try {
-      // Replaced fetch with mock API call
-      const res = await fetch(" /api/settings");
-const data: WebsiteSettingsResponse = await res.json();
+      // Using mock API helper during dev / storybook
+      const data: WebsiteSettingsResponse = await mockFetchSettings();
       setSettings({
         site_name_fr: data.site_name_fr || '',
         site_name_ar: data.site_name_ar || '',
@@ -98,10 +97,10 @@ const data: WebsiteSettingsResponse = await res.json();
       });
       
      if (data.logo_url) {
-  setLogoPreview(` ${data.logo_url}`);
+  setLogoPreview(`${data.logo_url}`);
 }
 if (data.favicon_url) {
-  setFaviconPreview(` ${data.favicon_url}`);
+  setFaviconPreview(`${data.favicon_url}`);
 }
 
     } catch (error) {
@@ -132,12 +131,8 @@ if (data.favicon_url) {
         formData.append('favicon', faviconFile);
       }
 
-      // Replaced fetch with mock API call
-      const res = await fetch(" /api/settings", {
-  method: "PUT",
-  body: formData,
-});
-const updatedSettings: WebsiteSettingsResponse = await res.json();
+      // Use mock API to simulate save
+      const updatedSettings: WebsiteSettingsResponse = await mockSaveSettings(formData);
 
       setSettings({
         site_name_fr: updatedSettings.site_name_fr,
@@ -159,10 +154,10 @@ const updatedSettings: WebsiteSettingsResponse = await res.json();
       
       // Refresh previews
      if (updatedSettings.logo_url) {
-  setLogoPreview(` ${updatedSettings.logo_url}`);
+  setLogoPreview(`${updatedSettings.logo_url}`);
 }
 if (updatedSettings.favicon_url) {
-  setFaviconPreview(` ${updatedSettings.favicon_url}`);
+  setFaviconPreview(`${updatedSettings.favicon_url}`);
 }
 
     } catch (error) {
